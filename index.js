@@ -2,6 +2,7 @@ const acorn = require('acorn');
 const fs = require('fs');
 const path = require('path');
 const mkdirp = require('mkdirp');
+const escodegen = require('escodegen');
 
 const bundleContents = fs.readFileSync('./bundle.js');
 
@@ -88,54 +89,62 @@ function getModulePath(modules, moduleId) {
 modules.map(i => {
   // Given a module, determine where it was imported within.
   let moduleHierarchy = getModulePath(modules, i.id);
-  let fullModulePath;
+  let modulePath;
 
   if (moduleHierarchy === undefined) {
     // Our entry point
     console.log(`* ${i.id} => (Entry Point)`);
-    fullModulePath = 'index';
+    modulePath = 'index';
   } else {
-    // Take a hierarchy and normalize it:
-    // - If we encounter a
-    let currentNodeModule = '.';
-    console.log(moduleHierarchy);
-    let moduleInFolder = moduleHierarchy.reduce((acc, i) => {
-      if (i.startsWith('./')) {
-        return [...acc, path.dirname(i.slice(2))];
-      } else if (i.startsWith('../')) {
-        // When an import has multiple ../s at the beginning, then 
-        let parentDirectories = [];
-        while (i.startsWith('../')) {
-          i = i.slice(3);
-          parentDirectories.push('..');
-        }
-        return [...acc, ...parentDirectories, i.slice(3)];
-      } else {
-        // its a node_modules dependency
-        currentNodeModule = i;
+    /* ['./foo'] => './foo'
+     * ['../foo'] => '../foo'
+     * ['uuid', './foo'] => 'node_modules/uuid/foo'
+     * ['uuid', './foo', './bar'] => 'node_modules/uuid/bar'
+     * ['uuid', './bar/foo', './baz'] => 'node_modules/uuid/bar/baz'
+     * ['abc', './foo', 'uuid', './bar'] => 'node_modules/uuid/bar'
+     */
+
+    let rootNodeModule = '';
+    let requirePath = moduleHierarchy.reduce((acc, mod, ct) => {
+      if (!mod.startsWith('.')) {
+        // A root node module overrides the require tree, since paths are relative to it.
+        rootNodeModule = mod;
         return [];
+      } else if (ct === moduleHierarchy.length - 1) {
+        // When we get to the last item, return the filename as part of the require path.
+        return [...acc, mod || 'index'];
+      } else {
+        // A file import. However, this part is the directory only since further requires will
+        // "stack" on top of this one. Therefore, the file that's being included is irrelevant until
+        // the last item in the hierarchy (ie, the above case).
+        return [...acc, path.dirname(mod)];
       }
     }, []);
 
-    // Determine the name of the file that the cost is in.
-    // If the path ends with a folder, or is just a node_modules depedency, then the filename should
-    // be index.js.
-    let basename = path.basename(moduleHierarchy.slice(-1)[0]);
-    if (basename === currentNodeModule) {
-      basename = "index";
+    if (requirePath.length > 0) {
+      modulePath = path.join(...requirePath);
+    } else {
+      modulePath = 'index';
     }
 
-    fullModulePath = path.join(
-      currentNodeModule,
-      path.join.apply(path, moduleInFolder),
-      basename
-    );
-    console.log(`* ${i.id} => ${fullModulePath}.js`);
+    if (rootNodeModule) {
+      modulePath = `node_modules/${rootNodeModule}/${modulePath}`;
+    }
+
+    // // Determine the name of the file that the cost is in.
+    // // If the path ends with a folder, or is just a node_modules depedency, then the filename should
+    // // be index.js.
+    // let basename = path.basename(moduleHierarchy.slice(-1)[0]);
+    // if (basename === currentNodeModule) {
+    //   basename = "index";
+    // }
+
+    console.log(`* ${i.id} => ${modulePath}.js`);
   }
 
-  let filePath = path.join('dist', fullModulePath);
+  let filePath = path.join('dist', modulePath);
   mkdirp(path.dirname(filePath), (err, resp) => {
-    fs.writeFileSync(`${filePath}.js`, JSON.stringify(i.code));
+    fs.writeFileSync(`${filePath}.js`, escodegen.generate(i.code));
   });
 });
 
