@@ -95,6 +95,9 @@ function objectValues(obj) {
 function getModulePath(modules, moduleId) {
   // For each module, attempt to lookup the module id.
   return modules.map(m => {
+    // If the module doesn't have modules to lookup, then return false.
+    if (!m.lookup) { return false; }
+
     // Do a reverse lookup since we need to get the module names (keys) that match a specified value
     // (module id)
     let reverseLookup = objectValues(m.lookup);
@@ -121,7 +124,7 @@ function getModulePath(modules, moduleId) {
 
 
 // Assemble the file structure on disk.
-modules.map(i => {
+let files = modules.map(i => {
   let moduleHierarchy;
   let modulePath;
 
@@ -133,8 +136,8 @@ modules.map(i => {
     console.log(`* Reconstructing require path for module ${i.id}...`);
     moduleHierarchy = getModulePath(modules, i.id);
   } else {
-    moduleHierarchy = [`./${i.id}`];
     console.log(`* No lookup tabie for module ${i.id}, so using identifier as require path...`);
+    moduleHierarchy = [`./${i.id}`];
   }
 
   if (moduleHierarchy === undefined) {
@@ -181,7 +184,38 @@ modules.map(i => {
   }
 
   let filePath = path.join('dist', modulePath);
-  mkdirp(path.dirname(filePath), (err, resp) => {
-    fs.writeFileSync(`${filePath}.js`, escodegen.generate(i.code));
-  });
+  return {
+    filePath,
+    code: i.code,
+  }
+});
+
+
+// function makeDirectoryIfDoesntExist(filePath) {
+//   return new Promise((resolve, reject) => {
+//     let directory = path.dirname(filePath);
+//   });
+// }
+
+function writeFile(filePath, contents) {
+  console.log(`* Writing file ${filePath}`);
+  return fs.writeFileSync(filePath, contents);
+}
+
+files.forEach(({filePath, code}) => {
+  let directory = path.dirname(filePath);
+  code = escodegen.generate(code);
+
+  if (fs.existsSync(directory)) {
+    return writeFile(`${filePath}.js`);
+  } else {
+    console.log(`* ${directory} doesn't exist, creating...`);
+    mkdirp(directory, (err, resp) => {
+      if (err) {
+        throw err;
+      } else {
+        return writeFile(`${filePath}.js`);
+      }
+    });
+  }
 });
