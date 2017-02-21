@@ -11,6 +11,10 @@
   "license": "ISC",
   "dependencies": {
     "acorn": "^4.0.11",
-    "escodegen": "^1.8.1"
+    "escodegen": "^1.8.1",
+    "inquirer": "^3.0.1",
+    "memoize": "^0.1.1",
+    "minimist": "^1.2.0",
+    "replace-method": "0.0.0"
   }
 }

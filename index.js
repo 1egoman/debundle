@@ -3,88 +3,39 @@ const fs = require('fs');
 const path = require('path');
 const mkdirp = require('mkdirp');
 const escodegen = require('escodegen');
+const inquirer = require('inquirer');
+const args = require('minimist')(process.argv.slice(2));
 
+// const bundleContents = fs.readFileSync('./webpack_bundle.js');
+// const bundleContents = fs.readFileSync('./density_bundle.js');
 const bundleContents = fs.readFileSync('./bundle.js');
 
 let ast = acorn.parse(bundleContents, {});
+
+// let iifeModules = ast.body[0].expression.argument.arguments[0].arguments[0];
 
 // Browserify bundles start with an IIFE. Fetch the IIFE and get it's arguments (what we care about,
 // and where all the module code is located)
 let iifeModules = ast.body[0].expression.arguments[0];
 
-if (iifeModules.type !== 'ObjectExpression') {
-  throw new Error(`The root level IIFE didn't have an object for it's first parameter, aborting...`);
-}
 
 
 
 
-// {
-//   1: [
-//     function(require, module, exports) {
-//       // the code goes here
-//       var foo = require('./foo');
-//     }, {
-//       './foo': 2
-//     }
-//   ],
-//   2: [
-//     function(require, module, exports) {
-//       // this the contents of foo.js
-//     }, {
-//       // No modules to look up
-//     }
-//   ],
-// }
-function browserifyDecoder(moduleArrayAST) {
-  // Loop through each module
-  return moduleArrayAST.properties.map(moduleDescriptor => {
-    // `moduleDescriptor` is the AST for the number-to-array mapping that browserify uses to lookup
-    // modules.
-    if (moduleDescriptor.type !== 'Property') {
-      throw new Error(`The module array AST doesn't contain a Property, make sure that the first argument passed to the rool level IIFE is an object.`);
-    }
 
-    // Extract the identifier used by the module within the bundle
-    let id = moduleDescriptor.key.value;
-    console.log(`* Discovered module ${id}`);
 
-    if (moduleDescriptor.value.type !== 'ArrayExpression') {
-      throw new Error(`Module ${id} has a valid key, but maps to something that isn't an array.`);
-    }
+// const webpackDecoder = require('./decoders/webpack');
+// let modules = webpackDecoder(iifeModules);
 
-    // Extract the function that wraps the module.
-    let moduleFunction = moduleDescriptor.value.elements[0];
-    console.log(`* Extracted module code for ${id}`);
-
-    // Extract the lookup table for mapping module identifier to its name.
-    let moduleLookup = moduleDescriptor.value.elements[1];
-    if (moduleLookup.type !== 'ObjectExpression') {
-      throw new Error(`Moduel ${id} has a valid key and code, but the 2nd argument passed to the module (what is assumed to be the lookup table) isn't an object.`);
-    }
-    console.log(`* Extracted module lookup table for ${id}`);
-
-    // Using the ast, create the lookup table. This maps module name to identitfier.
-    // To be clear, this just converts the 2nd array arg's AST to a native javascript object.
-    let lookupTable = moduleLookup.properties.reduce((acc, i) => {
-      acc[i.key.value] = i.value.value;
-      return acc;
-    }, {});
-    console.log(`* Calculated module lookup table for ${id}`);
-
-    return {
-      id,
-      code: moduleFunction.body,
-      lookup: lookupTable,
-    };
-  });
-}
-
-// Loop through each module
+const browserifyDecoder = require('./decoders/browserify');
 let modules = browserifyDecoder(iifeModules);
 
 
-
+const knownPaths = {
+  // 65: 'node_modules/@blueprintjs/core/src/index.js',
+  // 452: './app/store',
+  35: '@blueprintjs/core/src/components',
+};
 
 
 // Return the values of an object as an array.
@@ -92,7 +43,16 @@ function objectValues(obj) {
   return Object.keys(obj).map(k => obj[k]);
 }
 
-function getModulePath(modules, moduleId) {
+let getModulePathMemory = {};
+function getModulePath(modules, moduleId, moduleStack=[]) {
+  // console.log('* getModulePath', moduleId, moduleStack);
+  
+  // Memoize this beast. If a module has already been traversed, then just return it's cached
+  // output.
+  if (getModulePathMemory[moduleId]) {
+    return getModulePathMemory[moduleId];
+  }
+
   // For each module, attempt to lookup the module id.
   return modules.map(m => {
     // If the module doesn't have modules to lookup, then return false.
@@ -105,7 +65,23 @@ function getModulePath(modules, moduleId) {
     if (moduleIdIndex >= 0) {
       // Since the index's between keys / values are one-to-one, lookup in the other array.
       let moduleName = Object.keys(m.lookup)[moduleIdIndex];
-      let parentModule = getModulePath(modules, m.id);
+
+      // If the path has already been defined, go with it.
+      if (knownPaths[moduleId]) {
+        return [knownPaths[moduleId]];
+      }
+
+      // Prevent circular dependencies. If we come across a module that's already been required in
+      // a given tree, then stop walking down that leg of the tree.
+      let parentModule;
+      if (moduleStack.indexOf(m.id) === -1) {
+        parentModule = getModulePath(modules, m.id, [...moduleStack, m.id]);
+        getModulePathMemory[m.id] = parentModule;
+      } else {
+        console.log(`* Circular dependency discovered! ${moduleStack} ${moduleName}`);
+        return false;
+      }
+
       if (parentModule) {
         return [...parentModule, moduleName];
       } else {
@@ -119,9 +95,42 @@ function getModulePath(modules, moduleId) {
 }
 
 
+function reverseObject(obj) {
+  return Object.keys(obj).reduce((acc, i) => {
+    acc[obj[i]] = i; // Reverse keys and values
+    return acc;
+  }, {});
+}
+
+const circularImportPaths = [];
+function getModulePath2(modules, moduleId, moduleHistory=[]) {
+  // Find another module that requires in the module with `moduleId`
+  return modules.map(i => {
+    let reverseLookup = reverseObject(i.lookup);
+    if (
+      reverseLookup[moduleId] && // First, make sure `i` is a parent of the current module
+      circularImportPaths.indexOf(reverseLookup[moduleId]) === -1 && // No circular imports
+      i.lookup // Make sure `i` isn't a "leaf" node.
+    ) {
+      let parent = i;
+      console.log('Found a module that requires in module', moduleId, ':', parent.id);
+
+      // If the current module has previoudly been imported, then we have a circular import.
+      // Trim off all the modules after the circular import then try again.
+      if (moduleHistory.indexOf(reverseLookup[moduleId]) >= 0) {
+        moduleHistory = moduleHistory.slice(0, moduleHistory.indexOf(moduleId));
+        circularImportPaths.push(reverseLookup[moduleId]);
+      }
+
+      return getModulePath2(modules, parent.id, [...moduleHistory, reverseLookup[moduleId]]);
+    } else if (reverseLookup[moduleId]) {
+      console.log(`* Would traverse up to module ${i.id}, but it's been marked as a circular import.`);
+    }
+  }).find(i => i) || moduleHistory;
+}
 
 
-
+console.log(modules);
 
 // Assemble the file structure on disk.
 let files = modules.map(i => {
@@ -184,6 +193,18 @@ let files = modules.map(i => {
   }
 
   let filePath = path.join('dist', modulePath);
+
+  // If a filePath has a bunch of `../`s at the end, then it's broken (it broke out of the dist
+  // folder!) In this cae, tell the user we need an absolute path of one of the files in order to
+  // resolve it.
+  if (!filePath.startsWith('dist')) {
+    let reversedGetModulePathMemory = reverseObject(getModulePathMemory);
+    let err = `Don't have enough information to expand bundle into named files. The process requires the path of one of the below to be explicitly defined:
+${moduleHierarchy.map(i => `- ${i} (${reversedGetModulePathMemory[i] || '?'})`).join('\n')}`;
+
+    throw new Error(err);
+  }
+
   return {
     filePath,
     code: i.code,
@@ -191,31 +212,35 @@ let files = modules.map(i => {
 });
 
 
-// function makeDirectoryIfDoesntExist(filePath) {
-//   return new Promise((resolve, reject) => {
-//     let directory = path.dirname(filePath);
-//   });
-// }
-
 function writeFile(filePath, contents) {
   console.log(`* Writing file ${filePath}`);
   return fs.writeFileSync(filePath, contents);
 }
 
-files.forEach(({filePath, code}) => {
-  let directory = path.dirname(filePath);
-  code = escodegen.generate(code);
+function writeToDisk(files) {
+  return files.forEach(({filePath, code}) => {
+    let directory = path.dirname(filePath);
+    try {
+      code = escodegen.generate(code);
+    } catch(e) {
+      // FIXME: why does the code generator hickup here?
+      console.log(`* Couldn't parse ast to file for ${filePath}.`);
+      return
+    }
 
-  if (fs.existsSync(directory)) {
-    return writeFile(`${filePath}.js`);
-  } else {
-    console.log(`* ${directory} doesn't exist, creating...`);
-    mkdirp(directory, (err, resp) => {
-      if (err) {
-        throw err;
-      } else {
-        return writeFile(`${filePath}.js`);
-      }
-    });
-  }
-});
+    if (fs.existsSync(directory)) {
+      return writeFile(`${filePath}.js`, code);
+    } else {
+      console.log(`* ${directory} doesn't exist, creating...`);
+      mkdirp(directory, (err, resp) => {
+        if (err) {
+          throw err;
+        } else {
+          return writeFile(`${filePath}.js`, code);
+        }
+      });
+    }
+  });
+}
+
+writeToDisk(files);
