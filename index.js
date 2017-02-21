@@ -76,7 +76,7 @@ let files = modules.map(i => {
      */
 
     let rootNodeModule = '';
-    let requirePath = moduleHierarchy.reduce((acc, mod, ct) => {
+    let requirePath = moduleHierarchy.reduce((acc, [mod, stack], ct) => {
       if (!mod.startsWith('.')) {
         // A root node module overrides the require tree, since paths are relative to it.
         rootNodeModule = mod;
@@ -113,7 +113,7 @@ let files = modules.map(i => {
   if (!filePath.startsWith('dist')) {
     let reversedGetModulePathMemory = reverseObject(getModulePathMemory);
     let err = `Don't have enough information to expand bundle into named files. The process requires the path of one of the below to be explicitly defined:
-${moduleHierarchy.map(i => `- ${i} (${reversedGetModulePathMemory[i] || '?'})`).join('\n')}`;
+${moduleHierarchy.map(([mod, stack]) => `- ${mod} (${stack.slice(-1)[0]})`).join('\n')}`;
 
     throw new Error(err);
   }

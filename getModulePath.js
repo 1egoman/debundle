@@ -39,9 +39,9 @@ function getModulePath(modules, moduleId, moduleStack=[]) {
       }
 
       if (parentModule) {
-        return [...parentModule, moduleName];
+        return [...parentModule, [moduleName, moduleStack]];
       } else {
-        return [moduleName];
+        return [[moduleName, moduleStack]];
       }
     } else {
       // Module isn't in the lookup table, move on to the next module in the list.
