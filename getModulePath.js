@@ -5,15 +5,8 @@ const knownPaths = {
   35: '@blueprintjs/core/src/components',
 };
 
-// Return the values of an object as an array.
-function objectValues(obj) {
-  return Object.keys(obj).map(k => obj[k]);
-}
-
 let getModulePathMemory = {};
 function getModulePath(modules, moduleId, moduleStack=[]) {
-  // console.log('* getModulePath', moduleId, moduleStack);
-  
   // Memoize this beast. If a module has already been traversed, then just return it's cached
   // output.
   if (getModulePathMemory[moduleId]) {
@@ -27,12 +20,8 @@ function getModulePath(modules, moduleId, moduleStack=[]) {
 
     // Do a reverse lookup since we need to get the module names (keys) that match a specified value
     // (module id)
-    let reverseLookup = objectValues(m.lookup);
-    let moduleIdIndex = reverseLookup.indexOf(moduleId);
-    if (moduleIdIndex >= 0) {
-      // Since the index's between keys / values are one-to-one, lookup in the other array.
-      let moduleName = Object.keys(m.lookup)[moduleIdIndex];
-
+    let moduleName;
+    if (moduleName = moduleHasIdInLookupTable(m, moduleId)) {
       // If the path has already been defined, go with it.
       if (knownPaths[moduleId]) {
         return [knownPaths[moduleId]];
@@ -83,6 +72,12 @@ function moduleHasIdInLookupTable(mod, id) {
     return false;
   }
 }
+
+// Return the values of an object as an array.
+function objectValues(obj) {
+  return Object.keys(obj).map(k => obj[k]);
+}
+
 
 module.exports = {
   default: getModulePath,

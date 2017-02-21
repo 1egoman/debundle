@@ -30,6 +30,8 @@ let iifeModules = ast.body[0].expression.arguments[0];
 const browserifyDecoder = require('./decoders/browserify');
 let modules = browserifyDecoder(iifeModules);
 
+
+
 const {default: getModulePath, getModulePathMemory} = require('./getModulePath');
 
 function reverseObject(obj) {
@@ -38,36 +40,6 @@ function reverseObject(obj) {
     return acc;
   }, {});
 }
-
-const circularImportPaths = [];
-function getModulePath2(modules, moduleId, moduleHistory=[]) {
-  // Find another module that requires in the module with `moduleId`
-  return modules.map(i => {
-    let reverseLookup = reverseObject(i.lookup);
-    if (
-      reverseLookup[moduleId] && // First, make sure `i` is a parent of the current module
-      circularImportPaths.indexOf(reverseLookup[moduleId]) === -1 && // No circular imports
-      i.lookup // Make sure `i` isn't a "leaf" node.
-    ) {
-      let parent = i;
-      console.log('Found a module that requires in module', moduleId, ':', parent.id);
-
-      // If the current module has previoudly been imported, then we have a circular import.
-      // Trim off all the modules after the circular import then try again.
-      if (moduleHistory.indexOf(reverseLookup[moduleId]) >= 0) {
-        moduleHistory = moduleHistory.slice(0, moduleHistory.indexOf(moduleId));
-        circularImportPaths.push(reverseLookup[moduleId]);
-      }
-
-      return getModulePath2(modules, parent.id, [...moduleHistory, reverseLookup[moduleId]]);
-    } else if (reverseLookup[moduleId]) {
-      console.log(`* Would traverse up to module ${i.id}, but it's been marked as a circular import.`);
-    }
-  }).find(i => i) || moduleHistory;
-}
-
-
-console.log(modules);
 
 // Assemble the file structure on disk.
 let files = modules.map(i => {
@@ -79,10 +51,14 @@ let files = modules.map(i => {
   // tree.
   if (i.lookup) {
     // Given a module, determine where it was imported within.
-    console.log(`* Reconstructing require path for module ${i.id}...`);
+    // console.log(`* Reconstructing require path for module ${i.id}...`);
     moduleHierarchy = getModulePath(modules, i.id);
+
+    if (moduleHierarchy && moduleHierarchy.join('').indexOf('blueprint')) {
+      console.log(moduleHierarchy);
+    }
   } else {
-    console.log(`* No lookup tabie for module ${i.id}, so using identifier as require path...`);
+    // console.log(`* No lookup tabie for module ${i.id}, so using identifier as require path...`);
     moduleHierarchy = [`./${i.id}`];
   }
 
