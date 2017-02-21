@@ -30,6 +30,11 @@ let iifeModules = ast.body[0].expression.arguments[0];
 const browserifyDecoder = require('./decoders/browserify');
 let modules = browserifyDecoder(iifeModules);
 
+const knownPaths = {
+  // 65: 'node_modules/@blueprintjs/core/src/index.js',
+  // 452: './app/store',
+  216: '@blueprintjs/core/src/components',
+};
 
 
 const {default: getModulePath, getModulePathMemory} = require('./getModulePath');
@@ -52,9 +57,9 @@ let files = modules.map(i => {
   if (i.lookup) {
     // Given a module, determine where it was imported within.
     // console.log(`* Reconstructing require path for module ${i.id}...`);
-    moduleHierarchy = getModulePath(modules, i.id);
+    moduleHierarchy = getModulePath(modules, i.id, knownPaths);
 
-    if (moduleHierarchy && moduleHierarchy.join('').indexOf('blueprint')) {
+    if (moduleHierarchy && moduleHierarchy.join('').indexOf('/@/')) {
       console.log(moduleHierarchy);
     }
   } else {
@@ -109,7 +114,7 @@ let files = modules.map(i => {
 
   // If a filePath has a bunch of `../`s at the end, then it's broken (it broke out of the dist
   // folder!) In this cae, tell the user we need an absolute path of one of the files in order to
-  // resolve it.
+  // resolve it. Log out each of the paths along the require tree and it's respective module id.
   if (!filePath.startsWith('dist')) {
     let reversedGetModulePathMemory = reverseObject(getModulePathMemory);
     let err = `Don't have enough information to expand bundle into named files. The process requires the path of one of the below to be explicitly defined:

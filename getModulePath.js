@@ -1,12 +1,6 @@
-const knownPaths = {
-  // 65: 'node_modules/@blueprintjs/core/src/index.js',
-  // 452: './app/store',
-  // 216: '@blueprintjs/core/src/components/index',
-  35: '@blueprintjs/core/src/components',
-};
 
 let getModulePathMemory = {};
-function getModulePath(modules, moduleId, moduleStack=[]) {
+function getModulePath(modules, moduleId, knownPaths, moduleStack=[]) {
   // Memoize this beast. If a module has already been traversed, then just return it's cached
   // output.
   if (getModulePathMemory[moduleId]) {
@@ -24,14 +18,14 @@ function getModulePath(modules, moduleId, moduleStack=[]) {
     if (moduleName = moduleHasIdInLookupTable(m, moduleId)) {
       // If the path has already been defined, go with it.
       if (knownPaths[moduleId]) {
-        return [knownPaths[moduleId]];
+        return [[knownPaths[moduleId], []]];
       }
 
       // Prevent circular dependencies. If we come across a module that's already been required in
       // a given tree, then stop walking down that leg of the tree.
       let parentModule;
       if (moduleStack.indexOf(m.id) === -1) {
-        parentModule = getModulePath(modules, m.id, [...moduleStack, m.id]);
+        parentModule = getModulePath(modules, m.id, knownPaths, [...moduleStack, m.id]);
         getModulePathMemory[m.id] = parentModule;
       } else {
         console.log(`* Circular dependency discovered! ${moduleStack} ${moduleName}`);
