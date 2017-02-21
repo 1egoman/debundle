@@ -56,14 +56,10 @@ let files = modules.map(i => {
   // tree.
   if (i.lookup) {
     // Given a module, determine where it was imported within.
-    // console.log(`* Reconstructing require path for module ${i.id}...`);
+    console.log(`* Reconstructing require path for module ${i.id}...`);
     moduleHierarchy = getModulePath(modules, i.id, knownPaths);
-
-    if (moduleHierarchy && moduleHierarchy.join('').indexOf('/@/')) {
-      console.log(moduleHierarchy);
-    }
   } else {
-    // console.log(`* No lookup tabie for module ${i.id}, so using identifier as require path...`);
+    console.log(`* No lookup tabie for module ${i.id}, so using identifier as require path...`);
     moduleHierarchy = [`./${i.id}`];
   }
 
