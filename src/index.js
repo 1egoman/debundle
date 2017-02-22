@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 const acorn = require('acorn');
 const fs = require('fs');
 const path = require('path');
@@ -6,9 +7,30 @@ const escodegen = require('escodegen');
 const inquirer = require('inquirer');
 const args = require('minimist')(process.argv.slice(2));
 
-// const bundleContents = fs.readFileSync('./webpack_bundle.js');
-// const bundleContents = fs.readFileSync('./density_bundle.js');
-const bundleContents = fs.readFileSync('./bundle.js');
+const bundleLocation = args._[0] || args.input || args.i;
+const outputLocation = args.output || args.o;
+
+const config = JSON.parse(fs.readFileSync(args.config || args.c));
+
+function convertToIntegerKey(obj) {
+  return Object.keys(obj).reduce((acc, i) => {
+    acc[parseInt(i)] = obj[i];
+    return acc;
+  }, {});
+}
+
+config.knownPaths = convertToIntegerKey(config.knownPaths);
+
+
+if (!(bundleLocation || outputLocation)) {
+  console.log(`${process.argv[1]} [bundle location] [-o output folder] [-c config]`);
+  console.log();
+  console.log(`  -o Output folder to put the decompiled code.`);
+  console.log(`  -c Path to configuration`);
+  process.exit(1);
+}
+
+const bundleContents = fs.readFileSync(bundleLocation);
 
 let ast = acorn.parse(bundleContents, {});
 
@@ -23,28 +45,28 @@ let ast = acorn.parse(bundleContents, {});
 
 // Browserify bundles start with an IIFE. Fetch the IIFE and get it's arguments (what we care about,
 // and where all the module code is located)
+// let iifeModules = ast.body[0].expression.arguments[0];
+
+
+// Webpack bundle
 let iifeModules = ast.body[0].expression.arguments[0];
 
 
 
 
 
-const knownPaths = {
-  // 65: 'node_modules/@blueprintjs/core/src/index.js',
-  // 452: './app/store',
-  216: '@blueprintjs/core/src/components',
-};
-
-
 
 // const webpackDecoder = require('./decoders/webpack');
 // let modules = webpackDecoder(iifeModules);
 
-const browserifyDecoder = require('./decoders/browserify');
-let modules = browserifyDecoder(iifeModules);
+// const browserifyDecoder = require('./decoders/browserify');
+// let modules = browserifyDecoder(iifeModules);
 
-const filePathResolver = require('./filePathResolver');
-const files = filePathResolver(modules, knownPaths);
+const webpackDecoder = require('./decoders/webpack');
+let modules = webpackDecoder(iifeModules, config.knownPaths);
+
+const lookupTableResolver = require('./resolvers/lookupTable');
+const files = lookupTableResolver(modules, config.knownPaths, outputLocation);
 
 
 

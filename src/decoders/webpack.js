@@ -13,8 +13,7 @@ const replace = require('replace-method');
 //     "I am foo!";
 //   }
 // ])
-function webpackDecoder(moduleArrayAST) {
-
+function webpackDecoder(moduleArrayAST, knownPaths) {
   // Ensure that the bit of AST being passed is an array
   if (moduleArrayAST.type !== 'ArrayExpression') {
     throw new Error(`The root level IIFE didn't have an array for it's first parameter, aborting...`);
@@ -48,7 +47,7 @@ function webpackDecoder(moduleArrayAST) {
 
               // For each call, replace with a commonjs-style require call.
               // Create the require string to substitute below.
-              let moduleLocation = `./${node.arguments[0].raw}`;
+              let moduleLocation = getModuleFileName(node, knownPaths);
               return {
                 type: 'CallExpression',
                 callee: {
@@ -83,6 +82,11 @@ function webpackDecoder(moduleArrayAST) {
       };
     }
   });
+}
+
+function getModuleFileName(node, knownPaths) {
+  let id = node.arguments[0].raw;
+  return knownPaths[id] ? knownPaths[id] : `./${id}`;
 }
 
 module.exports = webpackDecoder;
