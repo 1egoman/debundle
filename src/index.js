@@ -86,6 +86,7 @@ console.log('* Decoding modules...');
 
 let modules;
 if (config.type === 'browserify') {
+  // Normalize all require function calls to all contain the module id.
   const browserifyDecoder = require('./decoders/browserify');
   modules = browserifyDecoder(iifeModules);
 } else {
@@ -93,10 +94,12 @@ if (config.type === 'browserify') {
   modules = webpackDecoder(iifeModules, config.knownPaths);
 }
 
+// Transform the module id in each require call into a relative path to the module.
 console.log('* Reassembling requires...');
 const requireTransform = require('./transformRequires');
 modules = requireTransform(modules, config.knownPaths, config.type);
 
+// Take the array of modules and figure out where to put each module on disk.
 console.log('* Resolving files...');
 const lookupTableResolver = require('./lookupTable');
 const files = lookupTableResolver(modules, config.knownPaths, config.type, outputLocation);

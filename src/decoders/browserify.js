@@ -61,12 +61,12 @@ function browserifyDecoder(moduleArrayAST) {
     console.log(`* Calculated module lookup table for ${id}`);
 
     // Determine the name of the require function. In unminified bundles it's `__webpack_require__`.
-    let requireFunctionIdentifier = moduleFunction.params[2];
+    let requireFunctionIdentifier = 'require';
 
     // Replace all the `__webpack_require__`s with calls to `require`. In the process, adjust the
     // require calls to point to the files, not just the number reference.
     replace(moduleFunction)(
-      [requireFunctionIdentifier.name], // the function that require is in within the code.
+      [requireFunctionIdentifier], // the function that require is in within the code.
       node => {
         switch (node.type) {
           case 'CallExpression':

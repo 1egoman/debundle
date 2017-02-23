@@ -69,7 +69,7 @@ function transformRequires(modules, knownPaths={}, type="browserify") {
             case 'Identifier':
               return {
                 type: 'Identifier',
-                name: requireFunctionIdentifier,
+                name: 'require',
               };
           };
         }
