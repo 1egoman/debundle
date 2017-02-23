@@ -1,4 +1,4 @@
-const replace = require('replace-method');
+const replace = require('../extern/replace-method');
 
 // Webpack debundling shim
 // Here's what a webpack bundle looks like:

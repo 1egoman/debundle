@@ -15,7 +15,8 @@
     "inquirer": "^3.0.1",
     "memoize": "^0.1.1",
     "minimist": "^1.2.0",
+    "mkdirp": "^0.5.1",
     "promise-map-series": "^0.2.3",
-    "replace-method": "0.0.0"
+    "recast": "~0.5.7"
   }
 }

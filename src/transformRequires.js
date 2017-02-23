@@ -1,5 +1,6 @@
-const replace = require('replace-method');
+const replace = require('./extern/replace-method');
 const path = require('path');
+const getModuleLocation = require('./utils/getModuleLocation');
 
 // Transform require calls to match the path of a given file.
 // Here's the problem this transformation solves. Say I've got a file `foo` and a file `bar`, and
@@ -21,8 +22,7 @@ function transformRequires(modules, knownPaths={}, type="browserify") {
       // Determine the name of the require function. In unminified bundles it's `__webpack_require__`.
       let requireFunctionIdentifier = type == 'webpack' ? mod.code.params[2].name : 'require';
 
-      // Replace all the `__webpack_require__`s with calls to `require`. In the process, adjust the
-      // require calls to point to the files, not just the number reference.
+      // Adjust the require calls to point to the files, not just the numerical module ids.
       replace(mod.code)(
         [requireFunctionIdentifier], // the function that require is in within the code.
         node => {
@@ -41,18 +41,24 @@ function transformRequires(modules, knownPaths={}, type="browserify") {
                 };
               }
 
-              // Given a module id, return the absolute path to the module.
-              function assembleModulePath(moduleId) {
-                return path.resolve(knownPaths[moduleId] || `./${moduleId}`);
-              }
-
-              // For each call, replace with a commonjs-style require call.
+              const moduleToRequire = modules.find(i => i.id === node.arguments[0].value);
               // Get a relative path from the current module to the module to require in.
-              const moduleToRequireId = node.arguments[0].value;
               let moduleLocation = path.relative(
-                assembleModulePath(mod.id),
-                assembleModulePath(moduleToRequireId)
+                path.dirname(getModuleLocation(modules, mod, knownPaths, '/dist')),
+                getModuleLocation(modules, moduleToRequire, knownPaths, '/dist')
               );
+
+              // If the module path references a node_module, then remove the node_modules prefix
+              if (moduleLocation.startsWith('node_modules/')) {
+                let [_nodeModules, m, filePath] = moduleLocation.split(path.sep, 3);
+                moduleLocation = `${m}`
+                if (!filePath.startsWith('index')) {
+                  moduleLocation = `${moduleLocation}/${filePath}`;
+                }
+              } else if (!moduleLocation.startsWith('.')) {
+                // Make relative paths start with a ./
+                moduleLocation = `./${moduleLocation}`;
+              }
 
               return {
                 type: 'CallExpression',

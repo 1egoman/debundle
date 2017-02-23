@@ -1,0 +1,99 @@
+{
+  "_args": [
+    [
+      {
+        "escapedName": "replace-method",
+        "name": "replace-method",
+        "raw": "replace-method",
+        "rawSpec": "",
+        "scope": null,
+        "spec": "latest",
+        "type": "tag"
+      },
+      "/Users/ryan/w/1egoman/debundler"
+    ]
+  ],
+  "_from": "replace-method@latest",
+  "_id": "replace-method@0.0.0",
+  "_inCache": true,
+  "_installable": true,
+  "_location": "/replace-method",
+  "_npmUser": {
+    "email": "hughskennedy@gmail.com",
+    "name": "hughsk"
+  },
+  "_npmVersion": "1.3.25",
+  "_phantomChildren": {},
+  "_requested": {
+    "escapedName": "replace-method",
+    "name": "replace-method",
+    "raw": "replace-method",
+    "rawSpec": "",
+    "scope": null,
+    "spec": "latest",
+    "type": "tag"
+  },
+  "_requiredBy": [
+    "#USER",
+    "/"
+  ],
+  "_resolved": "https://registry.npmjs.org/replace-method/-/replace-method-0.0.0.tgz",
+  "_shasum": "3704d10711c2d461db0291355061053cee83faf9",
+  "_shrinkwrap": null,
+  "_spec": "replace-method",
+  "_where": "/Users/ryan/w/1egoman/debundler",
+  "author": {
+    "email": "hughskennedy@gmail.com",
+    "name": "Hugh Kennedy",
+    "url": "http://hughsk.io/"
+  },
+  "browser": "index.js",
+  "bugs": {
+    "url": "https://github.com/hughsk/replace-method/issues"
+  },
+  "dependencies": {
+    "recast": "~0.5.7"
+  },
+  "description": "JavaScript post-processing step to replace specific function/method calls with other bits of JavaScript",
+  "devDependencies": {
+    "faucet": "0.0.0"
+  },
+  "directories": {},
+  "dist": {
+    "shasum": "3704d10711c2d461db0291355061053cee83faf9",
+    "tarball": "https://registry.npmjs.org/replace-method/-/replace-method-0.0.0.tgz"
+  },
+  "homepage": "https://github.com/hughsk/replace-method",
+  "keywords": [
+    "replace",
+    "method",
+    "call",
+    "post-processing",
+    "language",
+    "macro",
+    "transform",
+    "meta",
+    "inline",
+    "inlining",
+    "brfs"
+  ],
+  "license": "MIT",
+  "main": "index.js",
+  "maintainers": [
+    {
+      "email": "hughskennedy@gmail.com",
+      "name": "hughsk"
+    }
+  ],
+  "name": "replace-method",
+  "optionalDependencies": {},
+  "readme": "ERROR: No README data found!",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/hughsk/replace-method.git"
+  },
+  "scripts": {
+    "test": "faucet test.js"
+  },
+  "version": "0.0.0"
+}

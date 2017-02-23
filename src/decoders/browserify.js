@@ -1,4 +1,4 @@
-const replace = require('replace-method');
+const replace = require('../extern/replace-method');
 // Browserify decoder
 // Here's an example of what a browserify bundle looks like:
 //

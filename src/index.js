@@ -2,8 +2,6 @@
 const acorn = require('acorn');
 const fs = require('fs');
 const path = require('path');
-const mkdirp = require('mkdirp');
-const escodegen = require('escodegen');
 const inquirer = require('inquirer');
 const args = require('minimist')(process.argv.slice(2));
 
@@ -87,6 +85,7 @@ console.log('* Decoding modules...');
 let modules;
 if (config.type === 'browserify') {
   // Normalize all require function calls to all contain the module id.
+  // var a = require('a') => var a = require(1)
   const browserifyDecoder = require('./decoders/browserify');
   modules = browserifyDecoder(iifeModules);
 } else {
@@ -95,49 +94,19 @@ if (config.type === 'browserify') {
 }
 
 // Transform the module id in each require call into a relative path to the module.
+// var a = require(1) => var a = require('./path/to/a')
 console.log('* Reassembling requires...');
 const requireTransform = require('./transformRequires');
 modules = requireTransform(modules, config.knownPaths, config.type);
 
 // Take the array of modules and figure out where to put each module on disk.
+// module 1 => ./dist/path/to/a.js
 console.log('* Resolving files...');
 const lookupTableResolver = require('./lookupTable');
 const files = lookupTableResolver(modules, config.knownPaths, config.type, outputLocation);
 
 
 
-function writeFile(filePath, contents) {
-  console.log(`* Writing file ${filePath}`);
-  return fs.writeFileSync(filePath, contents);
-}
-
-function writeToDisk(files) {
-  return files.forEach(({filePath, code}) => {
-    let directory = path.dirname(filePath);
-    try {
-      code = escodegen.generate(code.body, {
-        format: { indent: { style: '  ' } }, // 2 space indentation
-      });
-    } catch(e) {
-      // FIXME: why does the code generator hickup here?
-      console.log(`* Couldn't parse ast to file for ${filePath}.`);
-      return
-    }
-
-    if (fs.existsSync(directory)) {
-      return writeFile(`${path.normalize(filePath)}.js`, code);
-    } else {
-      console.log(`* ${directory} doesn't exist, creating...`);
-      mkdirp(directory, (err, resp) => {
-        if (err) {
-          throw err;
-        } else {
-          return writeFile(`${filePath}.js`, code);
-        }
-      });
-    }
-  });
-}
-
 console.log('* Writing to disk...');
+const writeToDisk = require('./writeToDisk');
 writeToDisk(files);
