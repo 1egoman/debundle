@@ -47,7 +47,7 @@ function browserifyDecoder(moduleArrayAST) {
     // Extract the lookup table for mapping module identifier to its name.
     let moduleLookup = moduleDescriptor.value.elements[1];
     if (moduleLookup.type !== 'ObjectExpression') {
-      throw new Error(`Moduel ${id} has a valid key and code, but the 2nd argument passed to the module (what is assumed to be the lookup table) isn't an object.`);
+      throw new Error(`Module ${id} has a valid key and code, but the 2nd argument passed to the module (what is assumed to be the lookup table) isn't an object.`);
     }
     console.log(`* Extracted module lookup table for ${id}`);
 
@@ -61,7 +61,7 @@ function browserifyDecoder(moduleArrayAST) {
 
     return {
       id,
-      code: moduleFunction.body,
+      code: moduleFunction,
       lookup: lookupTable,
     };
   });

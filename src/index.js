@@ -14,7 +14,7 @@ const config = JSON.parse(fs.readFileSync(args.config || args.c));
 
 function convertToIntegerKey(obj) {
   return Object.keys(obj).reduce((acc, i) => {
-    acc[parseInt(i)] = obj[i];
+    acc[parseInt(i) || i] = obj[i];
     return acc;
   }, {});
 }
@@ -30,9 +30,22 @@ if (!(bundleLocation || outputLocation)) {
   process.exit(1);
 }
 
+if (!config.moduleAst) {
+  if (config.type === 'browserify') {
+    // Where browserify defaultly stores all it's embedded modules as an object
+    config.moduleAst = ["body", 0, "expression", "arguments", 0];
+  } else if (config.type === 'webpack') {
+    // Where webpack defaultly stores all it's embedded modules as an array
+    config.moduleAst = ["body", 0, "expression", "arguments", 0];
+  }
+  console.log(`* Using default AST location for ${config.type}...`);
+}
+
+console.log('* Reading bundle...');
 const bundleContents = fs.readFileSync(bundleLocation);
 
 let ast = acorn.parse(bundleContents, {});
+
 
 // TODO
 // KNOWN BUGS
@@ -41,32 +54,52 @@ let ast = acorn.parse(bundleContents, {});
 // ie, blueprint has it's root in `src/index.js` and it requires `./common` from that file, which
 // when the root file is put in `index.js` it can't resolve.
 
-// let iifeModules = ast.body[0].expression.argument.arguments[0].arguments[0];
-
 // Browserify bundles start with an IIFE. Fetch the IIFE and get it's arguments (what we care about,
 // and where all the module code is located)
-// let iifeModules = ast.body[0].expression.arguments[0];
+
+let iifeModules = ast;
+while (true) {
+  let operation = config.moduleAst.shift();
+  if (operation === undefined) {
+    break;
+  } else if (!iifeModules) {
+    throw new Error(`Locating the module AST failed. Please specifify a valid manual ast path in your config file with the key \`moduleAst\``);
+  } else {
+    iifeModules = iifeModules[operation];
+  }
+}
+
+// Known paths are inserted absolutely into requires. They need to be made relative.
+//
+
 
 
 // Webpack bundle
-let iifeModules = ast.body[0].expression.arguments[0];
+// let iifeModules = ast.body[0].expression.arguments[0];
 
 
 
 
 
 
-// const webpackDecoder = require('./decoders/webpack');
-// let modules = webpackDecoder(iifeModules);
+console.log('* Decoding modules...');
 
-// const browserifyDecoder = require('./decoders/browserify');
-// let modules = browserifyDecoder(iifeModules);
+let modules;
+if (config.type === 'browserify') {
+  const browserifyDecoder = require('./decoders/browserify');
+  modules = browserifyDecoder(iifeModules);
+} else {
+  const webpackDecoder = require('./decoders/webpack');
+  modules = webpackDecoder(iifeModules, config.knownPaths);
+}
 
-const webpackDecoder = require('./decoders/webpack');
-let modules = webpackDecoder(iifeModules, config.knownPaths);
+console.log('* Reassembling requires...');
+const requireTransform = require('./transformRequires');
+modules = requireTransform(modules, config.knownPaths);
 
-const lookupTableResolver = require('./resolvers/lookupTable');
-const files = lookupTableResolver(modules, config.knownPaths, outputLocation);
+console.log('* Resolving files...');
+const lookupTableResolver = require('./lookupTable');
+const files = lookupTableResolver(modules, config.knownPaths, config.type, outputLocation);
 
 
 
@@ -79,7 +112,9 @@ function writeToDisk(files) {
   return files.forEach(({filePath, code}) => {
     let directory = path.dirname(filePath);
     try {
-      code = escodegen.generate(code);
+      code = escodegen.generate(code.body, {
+        format: { indent: { style: '  ' } }, // 2 space indentation
+      });
     } catch(e) {
       // FIXME: why does the code generator hickup here?
       console.log(`* Couldn't parse ast to file for ${filePath}.`);
@@ -87,7 +122,7 @@ function writeToDisk(files) {
     }
 
     if (fs.existsSync(directory)) {
-      return writeFile(`${filePath}.js`, code);
+      return writeFile(`${path.normalize(filePath)}.js`, code);
     } else {
       console.log(`* ${directory} doesn't exist, creating...`);
       mkdirp(directory, (err, resp) => {
@@ -101,4 +136,5 @@ function writeToDisk(files) {
   });
 }
 
+console.log('* Writing to disk...');
 writeToDisk(files);

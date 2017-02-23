@@ -1,4 +1,31 @@
 
+// getModulePath
+// A function that takes an array of modules and a module id. The function iterates through all
+// modules and assebles a call stack that reaches the specified module (by id). For example, if I
+// have a three module bundle with `foo` (id: 1), `bar` (id: 2) and `baz` (id: 3), where `foo`
+// imports `bar` (in foo: `require('./bar')`), and `bar` imports `baz`
+// (in bar: `require('./some/long/path/to/baz')`), and to this function this is passed:
+//
+// // Get the path to `baz`
+// getModulePath([
+//   {id: 1, code: (ast), lookup: {'./bar': 2}},
+//   {id: 2, code: (ast), lookup: {'./some/long/path/to/baz': 3}},
+//   {id: 3, code: (ast), lookup: {}},
+// ], 3)
+//
+// Here's the response:
+// [["./bar", "./some/long/path/to/bar"], [2, 3]]
+//
+// Deconstructed:
+// - Outer array is just a container.
+// - First element: An array path to each require call made in order to reach the destination (in
+// the above, it's the module with an id of 3 (bar)). This path can be joined together to form a
+// path to the module.
+// - Second element: The numerical ids that were traversed, in order, to reach this path.
+//
+// NOTE:
+// - This fucntion isn't pure, it memoizes itself into `getModulePathMemory`. If you erase this
+// object though after running the function that whole operation (running/erasing) is pure.
 let getModulePathMemory = {};
 function getModulePath(modules, moduleId, knownPaths, moduleStack=[]) {
   // Memoize this beast. If a module has already been traversed, then just return it's cached
