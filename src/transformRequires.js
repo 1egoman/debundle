@@ -13,18 +13,18 @@ const path = require('path');
 //
 // Also takes an optional argument `knownPaths`, which is a key value mapping where key is a module
 // id and the value is the patht to that module. No `.js` needed. Ie, {1: '/path/to/my/module'}
-function transformRequires(modules, knownPaths={}) {
+function transformRequires(modules, knownPaths={}, type="browserify") {
   return modules.map(mod => {
     let moduleDescriptor = mod.code.body;
 
     if (mod.code && mod.code.params && mod.code.params.length >= 3) {
       // Determine the name of the require function. In unminified bundles it's `__webpack_require__`.
-      let requireFunctionIdentifier = mod.code.params[2];
+      let requireFunctionIdentifier = type == 'webpack' ? mod.code.params[2].name : 'require';
 
       // Replace all the `__webpack_require__`s with calls to `require`. In the process, adjust the
       // require calls to point to the files, not just the number reference.
       replace(mod.code)(
-        [requireFunctionIdentifier.name], // the function that require is in within the code.
+        [requireFunctionIdentifier], // the function that require is in within the code.
         node => {
           switch (node.type) {
             case 'CallExpression':
@@ -48,7 +48,7 @@ function transformRequires(modules, knownPaths={}) {
 
               // For each call, replace with a commonjs-style require call.
               // Get a relative path from the current module to the module to require in.
-              const moduleToRequireId = node.arguments[0].raw;
+              const moduleToRequireId = node.arguments[0].value;
               let moduleLocation = path.relative(
                 assembleModulePath(mod.id),
                 assembleModulePath(moduleToRequireId)
@@ -69,7 +69,7 @@ function transformRequires(modules, knownPaths={}) {
             case 'Identifier':
               return {
                 type: 'Identifier',
-                name: 'require',
+                name: requireFunctionIdentifier,
               };
           };
         }

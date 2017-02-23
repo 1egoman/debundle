@@ -1,3 +1,4 @@
+const replace = require('replace-method');
 // Browserify decoder
 // Here's an example of what a browserify bundle looks like:
 //
@@ -58,6 +59,47 @@ function browserifyDecoder(moduleArrayAST) {
       return acc;
     }, {});
     console.log(`* Calculated module lookup table for ${id}`);
+
+    // Determine the name of the require function. In unminified bundles it's `__webpack_require__`.
+    let requireFunctionIdentifier = moduleFunction.params[2];
+
+    // Replace all the `__webpack_require__`s with calls to `require`. In the process, adjust the
+    // require calls to point to the files, not just the number reference.
+    replace(moduleFunction)(
+      [requireFunctionIdentifier.name], // the function that require is in within the code.
+      node => {
+        switch (node.type) {
+          case 'CallExpression':
+            // If require is called bare (why would this ever happen? IDK), then return AST
+            // without any arguments.
+            if (node.arguments.length === 0) {
+              return {
+                type: 'CallExpression',
+                callee: {
+                  type: 'Identifier',
+                  name: 'require',
+                },
+                arguments: [],
+              };
+            }
+
+            // Otherwise, replace the module name in the require call with the module id.
+            const moduleToRequireId = node.arguments[0].value;
+            return {
+              type: 'CallExpression',
+              callee: {
+                type: 'Identifier',
+                name: 'require',
+              },
+              arguments: [
+                // Substitute in the module location on disk
+                {type: 'Literal', value: lookupTable[moduleToRequireId], raw: lookupTable[moduleToRequireId]},
+                ...node.arguments.slice(1),
+              ],
+            };
+        };
+      }
+    );
 
     return {
       id,

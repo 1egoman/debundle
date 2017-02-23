@@ -95,7 +95,7 @@ if (config.type === 'browserify') {
 
 console.log('* Reassembling requires...');
 const requireTransform = require('./transformRequires');
-modules = requireTransform(modules, config.knownPaths);
+modules = requireTransform(modules, config.knownPaths, config.type);
 
 console.log('* Resolving files...');
 const lookupTableResolver = require('./lookupTable');
