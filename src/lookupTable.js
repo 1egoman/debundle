@@ -9,7 +9,9 @@ function lookupTableResolver(modules, knownPaths, type="browserify", pathPrefix=
   // Assemble the file structure on disk.
   return modules.map(i => {
     return {
-      filePath: getModuleLocation(modules, i, knownPaths, pathPrefix),
+      // The bello appendTrailingIndexFilesToNodeModules will make node_modules contain `index`
+      // files, so `foo` => `node_modules/foo/index` (without the flag, `foo` => `node_modules/foo`)
+      filePath: getModuleLocation(modules, i, knownPaths, pathPrefix, /* appendTrailingIndexFilesToNodeModules: */ true),
       code: i.code,
     };
   });

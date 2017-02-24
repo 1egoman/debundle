@@ -18,6 +18,11 @@ function transformRequires(modules, knownPaths={}, type="browserify") {
   return modules.map(mod => {
     let moduleDescriptor = mod.code.body;
 
+    // Make sure the code is at its root a function.
+    if (mod && mod.code && mod.code.type !== 'FunctionDeclaration') {
+      throw new Error(`Module ${mod.id} doesn't have a function at its root.`);
+    }
+
     if (mod.code && mod.code.params && mod.code.params.length >= 3) {
       // Determine the name of the require function. In unminified bundles it's `__webpack_require__`.
       let requireFunctionIdentifier = type == 'webpack' ? mod.code.params[2].name : 'require';
@@ -41,37 +46,54 @@ function transformRequires(modules, knownPaths={}, type="browserify") {
                 };
               }
 
-              const moduleToRequire = modules.find(i => i.id === node.arguments[0].value);
-              // Get a relative path from the current module to the module to require in.
-              let moduleLocation = path.relative(
-                path.dirname(getModuleLocation(modules, mod, knownPaths, '/dist')),
-                getModuleLocation(modules, moduleToRequire, knownPaths, '/dist')
-              );
+              // If a module id is in the require, then do the require.
+              if (node.arguments[0].type === 'Literal') {
+                const moduleToRequire = modules.find(i => i.id === node.arguments[0].value);
 
-              // If the module path references a node_module, then remove the node_modules prefix
-              if (moduleLocation.startsWith('node_modules/')) {
-                let [_nodeModules, m, filePath] = moduleLocation.split(path.sep, 3);
-                moduleLocation = `${m}`
-                if (!filePath.startsWith('index')) {
-                  moduleLocation = `${moduleLocation}/${filePath}`;
+                // FIXME:
+                // In the spotify bundle someone did a require(null)? What is that supposed to do?
+                if (!moduleToRequire) {
+                  throw new Error(`Module ${node.arguments[0].value} cannot be found, but another module (${mod.id}) requires it in.`);
                 }
-              } else if (!moduleLocation.startsWith('.')) {
-                // Make relative paths start with a ./
-                moduleLocation = `./${moduleLocation}`;
+
+                // Get a relative path from the current module to the module to require in.
+                let moduleLocation = path.relative(
+                  path.dirname(getModuleLocation(modules, mod, knownPaths, '/')),
+                  getModuleLocation(modules, moduleToRequire, knownPaths, '/')
+                );
+
+                // If the module path references a node_module, then remove the node_modules prefix
+                if (moduleLocation.indexOf('node_modules/') !== -1) {
+                  moduleLocation = `${moduleLocation.match(/node_modules\/(.+)$/)[1]}`
+                } else if (!moduleLocation.startsWith('.')) {
+                  // Make relative paths start with a ./
+                  moduleLocation = `./${moduleLocation}`;
+                }
+
+                return {
+                  type: 'CallExpression',
+                  callee: {
+                    type: 'Identifier',
+                    name: 'require',
+                  },
+                  arguments: [
+                    // Substitute in the module location on disk
+                    {type: 'Literal', value: moduleLocation, raw: moduleLocation},
+                    ...node.arguments.slice(1),
+                  ],
+                };
+              } else if (node.arguments[0].type === 'Identifier') {
+                // Otherwise, just pass through the AST.
+                return {
+                  type: 'CallExpression',
+                  callee: {
+                    type: 'Identifier',
+                    name: 'require',
+                  },
+                  arguments: node.arguments,
+                };
               }
 
-              return {
-                type: 'CallExpression',
-                callee: {
-                  type: 'Identifier',
-                  name: 'require',
-                },
-                arguments: [
-                  // Substitute in the module location on disk
-                  {type: 'Literal', value: moduleLocation, raw: moduleLocation},
-                  ...node.arguments.slice(1),
-                ],
-              };
             case 'Identifier':
               return {
                 type: 'Identifier',

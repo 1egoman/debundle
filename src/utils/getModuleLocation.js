@@ -2,9 +2,15 @@ const {default: getModulePath, getModulePathMemory} = require('./getModulePath')
 const path = require('path');
 
 // Given a module, return it's location on disk.
-function getModuleLocation(modules, mod, knownPaths, pathPrefix="dist/") {
+function getModuleLocation(
+  modules,
+  mod,
+  knownPaths,
+  pathPrefix="dist/",
+  appendTrailingIndexFilesToNodeModules=false
+) {
   let moduleHierarchy;
-  let modulePath;
+  let modulePath = '';
 
   // If the module response contains a lookup table for modules that are required in by the current
   // module being iterated over, then calculate the hierachy of the requires to reconstruct the
@@ -50,8 +56,12 @@ function getModuleLocation(modules, mod, knownPaths, pathPrefix="dist/") {
 
     if (requirePath.length > 0) {
       modulePath = path.join(...requirePath);
-    } else {
+    } else if (!rootNodeModule) {
       modulePath = 'index';
+    } else {
+      // If a root node module, then leave it empty. The root node module's index is implied.
+      // Ie, you don't need to do `foo/index`, you can just do `foo`.
+      modulePath = appendTrailingIndexFilesToNodeModules ? 'index' : '';
     }
 
     if (rootNodeModule) {

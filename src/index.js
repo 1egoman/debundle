@@ -96,8 +96,8 @@ if (config.type === 'browserify') {
 // Transform the module id in each require call into a relative path to the module.
 // var a = require(1) => var a = require('./path/to/a')
 console.log('* Reassembling requires...');
-const requireTransform = require('./transformRequires');
-modules = requireTransform(modules, config.knownPaths, config.type);
+const transformRequires = require('./transformRequires');
+modules = transformRequires(modules, config.knownPaths, config.type);
 
 // Take the array of modules and figure out where to put each module on disk.
 // module 1 => ./dist/path/to/a.js

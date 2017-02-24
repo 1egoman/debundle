@@ -1,4 +1,4 @@
-const {default: getModulePath, getModulePathMemory} = require('./getModulePath');
+const {default: getModulePath, getModulePathMemory} = require('./utils/getModulePath');
 const path = require('path');
 
 // A fucntion that takes an array of modules, in the form of [{id: 2, code: (ast), lookup: {'./foo':
