@@ -7,8 +7,23 @@ const args = require('minimist')(process.argv.slice(2));
 
 const bundleLocation = args._[0] || args.input || args.i;
 const outputLocation = args.output || args.o;
+const configPath = args.config || args.c;
+
+if (!(bundleLocation && outputLocation && configPath)) {
+  console.log(`This is a debundler - it takes a bundle and expands it into the source that was used to compile it.`);
+  console.log();
+  console.log(`Usage: ${process.argv[1]} [input file] {OPTIONS}`);
+  console.log();
+  console.log(`Options:`);
+  console.log(`   --input,  -i  Bundle to debundle`);
+  console.log(`   --output, -o  Directory to debundle code into.`);
+  console.log(`   --config, -c  Configuration directory`);
+  console.log();
+  process.exit(1);
+}
 
 const config = JSON.parse(fs.readFileSync(args.config || args.c));
+
 
 function convertToIntegerKey(obj) {
   return Object.keys(obj).reduce((acc, i) => {
