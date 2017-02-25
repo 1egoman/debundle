@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "mocha **/*.spec.js"
+    "test": "mocha src/*.spec.js src/**/*.spec.js"
   },
   "keywords": [],
   "author": "",
