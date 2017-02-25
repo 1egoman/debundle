@@ -19,7 +19,7 @@ function transformRequires(modules, knownPaths={}, type="browserify") {
     let moduleDescriptor = mod.code.body;
 
     // Make sure the code is at its root a function.
-    if (mod && mod.code && mod.code.type !== 'FunctionDeclaration') {
+    if (mod && mod.code && !(mod.code.type == 'FunctionDeclaration' || mod.code.type === 'FunctionExpression')) {
       throw new Error(`Module ${mod.id} doesn't have a function at its root.`);
     }
 

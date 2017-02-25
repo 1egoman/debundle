@@ -19,6 +19,7 @@ function getModuleLocation(
     // Given a module, determine where it was imported within.
     console.log(`* Reconstructing require path for module ${mod.id}...`);
     moduleHierarchy = getModulePath(modules, mod.id, knownPaths);
+    console.log('moduleHierarchy', moduleHierarchy);
   } else {
     console.log(`* No lookup tabie for module ${mod.id}, so using identifier as require path...`);
     moduleHierarchy = knownPaths[mod.id] ?  [[knownPaths[mod.id], [mod.id]]] : [[`./${mod.id}`, [mod.id]]];
@@ -68,7 +69,7 @@ function getModuleLocation(
       modulePath = `node_modules/${rootNodeModule}/${modulePath}`;
     }
 
-    console.log(`* ${mod.id} => ${modulePath}.js`);
+    console.log(`* ${mod.id} => ${modulePath}`);
   }
 
   let filePath = path.join(pathPrefix, modulePath);

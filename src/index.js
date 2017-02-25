@@ -35,14 +35,6 @@ function convertToIntegerKey(obj) {
 config.knownPaths = convertToIntegerKey(config.knownPaths);
 
 
-if (!(bundleLocation || outputLocation)) {
-  console.log(`${process.argv[1]} [bundle location] [-o output folder] [-c config]`);
-  console.log();
-  console.log(`  -o Output folder to put the decompiled code.`);
-  console.log(`  -c Path to configuration`);
-  process.exit(1);
-}
-
 if (!config.moduleAst) {
   if (config.type === 'browserify') {
     // Where browserify defaultly stores all it's embedded modules as an object
