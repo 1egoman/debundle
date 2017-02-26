@@ -31,15 +31,6 @@ function makeModuleTree(modules, moduleId, tree=new Arboreal(), depth=0) {
  * ['uuid', './bar/foo', './baz'] => 'node_modules/uuid/bar/baz'
  * ['abc', './foo', 'uuid', './bar'] => 'node_modules/uuid/bar'
  */
-const tree = makeModuleTree([
-  {id: 1, code: null, lookup: {'./foo': 2, 'uuid': 3}},
-  {id: 2, code: null, lookup: {'./bar/baz': 4}},
-  {id: 3, code: null, lookup: {}},
-  {id: 4, code: null, lookup: {'uuid': 3, '../hello': 5}},
-  {id: 5, code: null, lookup: {}},
-], 1 /* entry point */);
-
-const {EventEmitter} = require('events');
 
 function getAllPathsToModule(
   tree,
@@ -47,52 +38,52 @@ function getAllPathsToModule(
   knownPaths={},
 
   // A stack of modules that that have been traversed in this context
-  stack=[{id: tree.id, path: knownPaths[tree.id] || './index'}],
-  // Eventemitter to emit the results
-  emitter=new EventEmitter
+  stack=[{id: tree.id, path: knownPaths[tree.id] || './index'}]
 ) {
+  console.log(stack, tree.id);
+  let completeEvents = [], incompleteEvents = [];
   // Wrap in a closure to defer execution so emitters can emit after their respective handlers have
   // already been bound.
-  setImmediate(function() {
-    tree.children.forEach(child => {
-      const newStack = [...stack, {
-        id: child.id,
-        path: knownPaths[child.id] || reverseObject(tree.data.lookup)[child.id],
-      }];
+  tree.children.forEach(child => {
+    const newStack = [...stack, {
+      id: child.id,
+      path: knownPaths[child.id] || reverseObject(tree.data.lookup)[child.id],
+    }];
 
-      // To defeat circular imports, make sure that a module being required in hasn't already been
-      // required in previously in this context. If it has, then return this stack as an incomplete
-      // stack.
-      let stackContainsDuplicateIds = new Set(newStack.map(i => i.id)).size !== newStack.length;
-      if (stackContainsDuplicateIds) {
-        console.warn(`In this current stack, ${JSON.stringify(newStack)} module ${newStack[newStack.length - 1].id} has previously been required in. Marking incomplete stack.`);
-        emitter.emit('incomplete', newStack);
-        return
-      }
+    // To defeat circular imports, make sure that a module being required in hasn't already been
+    // required in previously in this context. If it has, then return this stack as an incomplete
+    // stack.
+    let stackContainsDuplicateIds = new Set(newStack.map(i => i.id)).size !== newStack.length;
+    if (stackContainsDuplicateIds) {
+      console.warn(`In this current stack, ${JSON.stringify(newStack)} module ${newStack[newStack.length - 1].id} has previously been required in. Marking incomplete stack.`);
+      incompleteEvents.push(newStack);
+      return
+    }
 
-      // If this traversal in the module tree finally came across a node that matches what was being
-      // looked for, the emit it!
-      if (moduleId === child.id) {
-        emitter.emit('complete', newStack);
-        return
-      }
+    // If this traversal in the module tree finally came across a node that matches what was being
+    // looked for, the emit it!
+    if (moduleId === child.id) {
+      completeEvents.push(newStack);
+      return
+    }
 
-      if (child.children.length > 0) {
-        getAllPathsToModule(child, moduleId, knownPaths, newStack, emitter);
-      } else {
-        // No children to traverse into, so this stack ends in failure :/
-        emitter.emit('incomplete', newStack);
-        return
-      }
-    });
+    if (child.children.length > 0) {
+      let {completeEvents: ce, incompleteEvents: ie} = getAllPathsToModule(
+        child,
+        moduleId,
+        knownPaths
+      );
+      completeEvents = [...completeEvents, ...ce];
+      incompleteEvents = [...incompleteEvents, ...ie];
+    } else {
+      // No children to traverse into, so this stack ends in failure :/
+      incompleteEvents.push(newStack);
+      return
+    }
   });
 
-  return emitter;
+  return {completeEvents, incompleteEvents};
 }
-
-let emitter = getAllPathsToModule(tree, 4, {1: './hello/world'});
-emitter.on('complete', console.log.bind(console, 'complete>'));
-emitter.on('incomplete', console.log.bind(console, 'incomplete>'));
 
 function reverseObject(obj) {
   return Object.keys(obj).reduce((acc, i) => {
@@ -106,3 +97,18 @@ module.exports = {
   default: makeModuleTree,
   getAllPathsToModule,
 };
+
+
+if (require.main === module) {
+  const tree = makeModuleTree([
+    {id: 1, code: null, lookup: {'./foo': 2, 'uuid': 3}},
+    {id: 2, code: null, lookup: {'./bar/baz': 4}},
+    {id: 3, code: null, lookup: {}},
+    {id: 4, code: null, lookup: {'uuid': 3, '../hello': 5}},
+    {id: 5, code: null, lookup: {}},
+  ], 1 /* entry point */);
+
+  let output = getAllPathsToModule(tree, 4, {1: './hello/world'});
+  output.completeEvents.forEach(i => console.log('complete>', i));
+  output.incompleteEvents.forEach(i => console.log('incomplete>', i));
+}
