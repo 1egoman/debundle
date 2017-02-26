@@ -78,10 +78,8 @@ function getModuleLocation(
   // folder!) In this cae, tell the user we need an absolute path of one of the files in order to
   // resolve it. Log out each of the paths along the require tree and it's respective module id.
   if (!filePath.startsWith(pathPrefix)) {
-    let reversedGetModulePathMemory = reverseObject(getModulePathMemory);
-    let err = `Don't have enough information to expand bundle into named files. The process requires the path of one of the below to be explicitly defined:
-${moduleHierarchy.map(([mod, stack]) => `- ${mod} (${stack.slice(-1)[0]})`).join('\n')}`;
-
+    let err = `Don't have enough information to expand bundle into named files. The process requires the path of one of the below to be explicitly defined:`;
+    // ${moduleHierarchy.map(([mod, stack]) => `- ${mod} (${stack.slice(-1)[0]})`).join('\n')}`;
     throw new Error(err);
   }
 
