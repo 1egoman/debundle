@@ -35,8 +35,9 @@ it('1: require(2) => 1: require("./2")', () => {
 
   const knownPaths = {
   };
+  const entryPointModuleId = 1;
   const type = "webpack";
-  const output = transformRequires(modules, knownPaths, type);
+  const output = transformRequires(modules, knownPaths, entryPointModuleId, type);
 
   assert.deepEqual(output, expectedOutput);
 });
@@ -73,8 +74,9 @@ it('1: require(2) => 1: require("./foo/bar/baz") where (2 = ./foo/bar/baz)', () 
   const knownPaths = {
     2: './foo/bar/baz',
   };
+  const entryPointModuleId = 1;
   const type = "webpack";
-  const output = transformRequires(modules, knownPaths, type);
+  const output = transformRequires(modules, knownPaths, entryPointModuleId, type);
 
   assert.deepEqual(output, expectedOutput);
 });
@@ -111,7 +113,8 @@ it('1: require(2) => 1: require("./bar/baz") where (1 = ./foo/index, 2 = ./foo/b
     2: './foo/bar/baz',
   };
   const type = "webpack";
-  const output = transformRequires(modules, knownPaths, type);
+  const entryPointModuleId = 1;
+  const output = transformRequires(modules, knownPaths, entryPointModuleId, type);
 
   assert.deepEqual(output, expectedOutput);
 });
@@ -148,7 +151,8 @@ it('1: require(2) => 1: require("../hello") where (1 = ./foo/bar/baz/index, 2 = 
     2: './foo/hello',
   };
   const type = "webpack";
-  const output = transformRequires(modules, knownPaths, type);
+  const entryPointModuleId = 1;
+  const output = transformRequires(modules, knownPaths, entryPointModuleId, type);
 
   assert.deepEqual(output, expectedOutput);
 });
@@ -187,7 +191,8 @@ it('1: require(2) => 1: require("foo") where (1 = ./foo/bar/baz/index, 2 = foo)'
     2: 'foo',
   };
   const type = "webpack";
-  const output = transformRequires(modules, knownPaths, type);
+  const entryPointModuleId = 1;
+  const output = transformRequires(modules, knownPaths, entryPointModuleId, type);
 
   assert.deepEqual(output, expectedOutput);
 });
@@ -224,7 +229,8 @@ it('1: require(2) => 1: require("foo/bar") where (1 = ./foo/bar/baz/index, 2 = f
     2: 'foo/bar',
   };
   const type = "webpack";
-  const output = transformRequires(modules, knownPaths, type);
+  const entryPointModuleId = 1;
+  const output = transformRequires(modules, knownPaths, entryPointModuleId, type);
 
   assert.deepEqual(output, expectedOutput);
 });
@@ -265,7 +271,8 @@ it('1: require(2) => 1: require("./foo")', () => {
   const knownPaths = {
   };
   const type = "webpack";
-  const output = transformRequires(modules, knownPaths, type);
+  const entryPointModuleId = 1;
+  const output = transformRequires(modules, knownPaths, entryPointModuleId, type);
 
   assert.deepEqual(output, expectedOutput);
 });
@@ -304,7 +311,8 @@ it('1: require(2) => 1: require("./bar/baz")', () => {
   const knownPaths = {
   };
   const type = "webpack";
-  const output = transformRequires(modules, knownPaths, type);
+  const entryPointModuleId = 1;
+  const output = transformRequires(modules, knownPaths, entryPointModuleId, type);
 
   assert.deepEqual(output, expectedOutput);
 });
@@ -343,7 +351,8 @@ it('1: require(2) => 1: require("foo")', () => {
   const knownPaths = {
   };
   const type = "webpack";
-  const output = transformRequires(modules, knownPaths, type);
+  const entryPointModuleId = 1;
+  const output = transformRequires(modules, knownPaths, entryPointModuleId, type);
 
   assert.deepEqual(output, expectedOutput);
 });

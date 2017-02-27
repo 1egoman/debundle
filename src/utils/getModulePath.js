@@ -3,6 +3,10 @@ const MAX_RECURSION_DEPTH = 100;
 
 function makeModuleTree(modules, moduleId, tree=new Arboreal(), depth=0) {
   let mod = modules.find(m => m.id === moduleId);
+  if (!mod) {
+    throw new Error(`Module ${mod.id} cannot be found in the module array.`);
+  }
+
   tree.data = mod;
   tree.id = mod.id;
 

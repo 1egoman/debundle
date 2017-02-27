@@ -61,8 +61,8 @@ function transformRequires(modules, knownPaths={}, entryPointModuleId, type="bro
 
                 // Get a relative path from the current module to the module to require in.
                 let moduleLocation = path.relative(
-                  path.dirname(getModuleLocation(modules, mod, knownPaths, '/', true, entryPointModuleId)),
-                  getModuleLocation(modules, moduleToRequire, knownPaths, '/', true, entryPointModuleId)
+                  path.dirname(getModuleLocation(modules, mod, knownPaths, '/', /* appendTrailingIndexFilesToNodeModules */ true, entryPointModuleId)),
+                  getModuleLocation(modules, moduleToRequire, knownPaths, '/', /* appendTrailingIndexFilesToNodeModules */ true, entryPointModuleId)
                 );
 
                 // If the module path references a node_module, then remove the node_modules prefix
