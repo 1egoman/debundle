@@ -35,9 +35,9 @@ function replacer(ast) {
     return replace
 
     function single(node) {
-      if (node.type !== 'CallExpression') return
-      if (node.callee.type !== 'Identifier') return
-      if (methodPath[0] !== node.callee.name) return
+      if (!node) return
+      if (node.type === 'CallExpression' && methodPath[0] !== node.callee.name) return;
+      if (node.type === 'Identifier' && methodPath[0] !== node.name) return;
 
       var result = updater(node)
       if (result !== undefined) {

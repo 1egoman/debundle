@@ -14,7 +14,7 @@ const getModuleLocation = require('./utils/getModuleLocation');
 //
 // Also takes an optional argument `knownPaths`, which is a key value mapping where key is a module
 // id and the value is the patht to that module. No `.js` needed. Ie, {1: '/path/to/my/module'}
-function transformRequires(modules, knownPaths={}, type="browserify") {
+function transformRequires(modules, knownPaths={}, entryPointModuleId, type="browserify") {
   return modules.map(mod => {
     let moduleDescriptor = mod.code.body;
 
@@ -29,7 +29,7 @@ function transformRequires(modules, knownPaths={}, type="browserify") {
 
       // Adjust the require calls to point to the files, not just the numerical module ids.
       replace(mod.code)(
-        [requireFunctionIdentifier], // the function that require is in within the code.
+        requireFunctionIdentifier, // the function that require is in within the code.
         node => {
           switch (node.type) {
             case 'CallExpression':
@@ -58,8 +58,8 @@ function transformRequires(modules, knownPaths={}, type="browserify") {
 
                 // Get a relative path from the current module to the module to require in.
                 let moduleLocation = path.relative(
-                  path.dirname(getModuleLocation(modules, mod, knownPaths, '/')),
-                  getModuleLocation(modules, moduleToRequire, knownPaths, '/')
+                  path.dirname(getModuleLocation(modules, mod, knownPaths, '/', false, entryPointModuleId)),
+                  getModuleLocation(modules, moduleToRequire, knownPaths, '/', false, entryPointModuleId)
                 );
 
                 // If the module path references a node_module, then remove the node_modules prefix

@@ -24,7 +24,6 @@ if (!(bundleLocation && outputLocation && configPath)) {
 
 const config = JSON.parse(fs.readFileSync(args.config || args.c));
 
-
 function convertToIntegerKey(obj) {
   return Object.keys(obj).reduce((acc, i) => {
     acc[parseInt(i) || i] = obj[i];
@@ -32,8 +31,15 @@ function convertToIntegerKey(obj) {
   }, {});
 }
 
-config.knownPaths = convertToIntegerKey(config.knownPaths);
+if (config.knownPaths) {
+  config.knownPaths = convertToIntegerKey(config.knownPaths);
+} else {
+  throw new Error('config.knownPaths is a required parameter that indicated known paths to a module given its id.');
+}
 
+if (config.entryPoint === undefined) {
+  throw new Error('config.entryPoint is a required parameter that indicated the entry point in the bundle.');
+}
 
 if (!config.moduleAst) {
   if (config.type === 'browserify') {
@@ -45,6 +51,8 @@ if (!config.moduleAst) {
   }
   console.log(`* Using default AST location for ${config.type}...`);
 }
+
+
 
 console.log('* Reading bundle...');
 const bundleContents = fs.readFileSync(bundleLocation);
@@ -104,13 +112,19 @@ if (config.type === 'browserify') {
 // var a = require(1) => var a = require('./path/to/a')
 console.log('* Reassembling requires...');
 const transformRequires = require('./transformRequires');
-modules = transformRequires(modules, config.knownPaths, config.type);
+modules = transformRequires(modules, config.knownPaths, config.entryPoint, config.type);
 
 // Take the array of modules and figure out where to put each module on disk.
 // module 1 => ./dist/path/to/a.js
 console.log('* Resolving files...');
 const lookupTableResolver = require('./lookupTable');
-const files = lookupTableResolver(modules, config.knownPaths, config.type, outputLocation);
+const files = lookupTableResolver(
+  modules,
+  config.knownPaths,
+  config.entryPoint,
+  config.type,
+  outputLocation
+);
 
 
 

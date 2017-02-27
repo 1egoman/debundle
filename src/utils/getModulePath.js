@@ -40,7 +40,7 @@ function getAllPathsToModule(
   // A stack of modules that that have been traversed in this context
   stack=[{id: tree.id, path: knownPaths[tree.id] || './index'}]
 ) {
-  console.log(stack, tree.id);
+  // console.trace('new node in stack', stack, tree.id);
   let completeEvents = [], incompleteEvents = [];
   // Wrap in a closure to defer execution so emitters can emit after their respective handlers have
   // already been bound.
@@ -71,7 +71,8 @@ function getAllPathsToModule(
       let {completeEvents: ce, incompleteEvents: ie} = getAllPathsToModule(
         child,
         moduleId,
-        knownPaths
+        knownPaths,
+        newStack
       );
       completeEvents = [...completeEvents, ...ce];
       incompleteEvents = [...incompleteEvents, ...ie];

@@ -35,8 +35,8 @@ function getModuleLocation(
     modulePaths = [{id: mod.id, path: knownPaths[mod.id]}];
   } else {
     // Final fallback - the name of the file is the module id.
-    console.log(`* No lookup tabie for module ${mod.id}, so using identifier as require path...`);
-    modulePaths = [{id: mod.id, path: `./${mod.id}`}];
+    console.warn(`* No lookup tabie for module ${mod.id}, so using identifier as require path...`);
+    modulePaths = [[{id: mod.id, path: `./${mod.id}`}]];
   }
 
   /* ['./foo'] => './foo'
@@ -70,7 +70,7 @@ function getModuleLocation(
   // cross referencing between multiple require paths.
   let requirePath = requirePaths[0];
 
-  if (requirePath.length > 0) {
+  if (requirePath && requirePath.length > 0) {
     modulePath = path.join(...requirePath);
   } else if (!rootNodeModule) {
     modulePath = 'index';
@@ -113,12 +113,16 @@ if (require.main === module) {
   let modules = [
     {id: 1, code: null, lookup: {'./foo': 2, 'uuid': 3}},
     {id: 2, code: null, lookup: {'./bar/baz': 4}},
-    {id: 3, code: null, lookup: {}},
+    {id: 3, code: null, lookup: {'./v1': 6, './v4': 7}},
     {id: 4, code: null, lookup: {'uuid': 3, '../hello': 5}},
     {id: 5, code: null, lookup: {}},
+
+    {id: 6, code: null, lookup: {'./lib/rnd': 8}}, /* uuid/v1 */
+    {id: 7, code: null, lookup: {'./lib/rnd': 8}}, /* uuid/v4 */
+    {id: 8, code: null, lookup: {}}, /* uuid/lib/rnd */
   ];
 
-  let output = getModuleLocation(modules, modules.find(i => i.id === 4), {1: './hello/world'});
+  let output = getModuleLocation(modules, modules.find(i => i.id === 8), {1: './hello/world'});
 
   console.log(output);
 }
