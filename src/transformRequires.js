@@ -54,15 +54,15 @@ function transformRequires(modules, knownPaths={}, entryPointModuleId, type="bro
                 // FIXME:
                 // In the spotify bundle someone did a require(null)? What is that supposed to do?
                 if (!moduleToRequire) {
-                  // throw new Error(`Module ${node.arguments[0].value} cannot be found, but another module (${mod.id}) requires it in.`);
-                  console.warn(`Module ${node.arguments[0].value} cannot be found, but another module (${mod.id}) requires it in.`);
-                  return
+                  throw new Error(`Module ${node.arguments[0].value} cannot be found, but another module (${mod.id}) requires it in.`);
+                  // console.warn(`Module ${node.arguments[0].value} cannot be found, but another module (${mod.id}) requires it in.`);
+                  // return
                 }
 
                 // Get a relative path from the current module to the module to require in.
                 let moduleLocation = path.relative(
-                  path.dirname(getModuleLocation(modules, mod, knownPaths, '/', false, entryPointModuleId)),
-                  getModuleLocation(modules, moduleToRequire, knownPaths, '/', false, entryPointModuleId)
+                  path.dirname(getModuleLocation(modules, mod, knownPaths, '/', true, entryPointModuleId)),
+                  getModuleLocation(modules, moduleToRequire, knownPaths, '/', true, entryPointModuleId)
                 );
 
                 // If the module path references a node_module, then remove the node_modules prefix
