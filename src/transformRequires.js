@@ -20,7 +20,8 @@ function transformRequires(modules, knownPaths={}, entryPointModuleId, type="bro
 
     // Make sure the code is at its root a function.
     if (mod && mod.code && !(mod.code.type == 'FunctionDeclaration' || mod.code.type === 'FunctionExpression')) {
-      throw new Error(`Module ${mod.id} doesn't have a function at its root.`);
+      console.warn(`* WARNING: Module ${mod.id} doesn't have a function at its root.`);
+      return mod;
     }
 
     if (mod.code && mod.code.params && mod.code.params.length >= 3) {
@@ -53,7 +54,9 @@ function transformRequires(modules, knownPaths={}, entryPointModuleId, type="bro
                 // FIXME:
                 // In the spotify bundle someone did a require(null)? What is that supposed to do?
                 if (!moduleToRequire) {
-                  throw new Error(`Module ${node.arguments[0].value} cannot be found, but another module (${mod.id}) requires it in.`);
+                  // throw new Error(`Module ${node.arguments[0].value} cannot be found, but another module (${mod.id}) requires it in.`);
+                  console.warn(`Module ${node.arguments[0].value} cannot be found, but another module (${mod.id}) requires it in.`);
+                  return
                 }
 
                 // Get a relative path from the current module to the module to require in.

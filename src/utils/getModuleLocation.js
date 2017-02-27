@@ -32,7 +32,7 @@ function getModuleLocation(
     modulePaths = completeEvents;
   } else if (knownPaths[mod.id]) {
     // Use a known path if it exists.
-    modulePaths = [{id: mod.id, path: knownPaths[mod.id]}];
+    modulePaths = [[{id: mod.id, path: knownPaths[mod.id]}]];
   } else {
     // Final fallback - the name of the file is the module id.
     console.warn(`* No lookup tabie for module ${mod.id}, so using identifier as require path...`);
