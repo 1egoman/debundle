@@ -29,7 +29,7 @@ function makeModuleTree(modules, moduleId, tree=new Arboreal(), depth=0) {
   return tree;
 }
 
-// Print a module tree. Anyt
+// Print a module tree. Properly handles circular references too!
 function printModuleTree(tree, maxDepth=10) {
   function treeWalker(node, depth=0) {
     if (depth >= maxDepth) {

@@ -356,3 +356,42 @@ it('1: require(2) => 1: require("foo")', () => {
 
   assert.deepEqual(output, expectedOutput);
 });
+
+// Test with a require call containing a variable
+
+it('1: require(variable) => 1: require(variable)', () => {
+  const modules = [
+    {
+      id: 1,
+      code: generateFunction(
+        {
+          type: 'CallExpression',
+          callee: {
+            type: 'Identifier',
+            name: 'require',
+          },
+          arguments: [{
+            type: 'Identifier',
+            name: 'require',
+          }],
+        },
+      ),
+      lookup: {'./foo': 2},
+    },
+    {
+      id: 2,
+      code: generateFunction(),
+      lookup: {},
+    },
+  ];
+  const expectedOutput = modules;
+
+
+  const knownPaths = {
+  };
+  const type = "webpack";
+  const entryPointModuleId = 1;
+  const output = transformRequires(modules, knownPaths, entryPointModuleId, type);
+
+  assert.deepEqual(output, expectedOutput);
+});
