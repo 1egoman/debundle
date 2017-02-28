@@ -1,4 +1,5 @@
 const Arboreal = require('arboreal');
+const archy = require('archy');
 const MAX_RECURSION_DEPTH = 100;
 
 function makeModuleTree(modules, moduleId, tree=new Arboreal(), depth=0) {
@@ -26,6 +27,22 @@ function makeModuleTree(modules, moduleId, tree=new Arboreal(), depth=0) {
   }
 
   return tree;
+}
+
+// Print a module tree. Anyt
+function printModuleTree(tree, maxDepth=10) {
+  function treeWalker(node, depth=0) {
+    if (depth >= maxDepth) {
+      return '(and more...)';
+    } else if (node.children) {
+      depth += 1;
+      return {label: node.id.toString(), nodes: node.children.map(i => treeWalker(i, depth))};
+    } else {
+      // leaf node
+      return node.id.toString();
+    }
+  }
+  console.log(archy(treeWalker(tree)));
 }
 
 /* ['./foo'] => './foo'
@@ -101,6 +118,7 @@ function reverseObject(obj) {
 module.exports = {
   default: makeModuleTree,
   getAllPathsToModule,
+  printModuleTree,
 };
 
 

@@ -1,4 +1,4 @@
-const {default: makeModuleTree, getAllPathsToModule} = require('./getModulePath');
+const {default: makeModuleTree, getAllPathsToModule, printModuleTree} = require('./getModulePath');
 const path = require('path');
 
 // Given a module, return it's location on disk.
@@ -15,6 +15,7 @@ function getModuleLocation(
 
   // Assemble a tree of modules starting at the entry point.
   let tree = makeModuleTree(modules, entryPointModuleId);
+  printModuleTree(tree);
 
   // If the module response contains a lookup table for modules that are required in by the current
   // module being iterated over, then calculate the hierachy of the requires to reconstruct the
