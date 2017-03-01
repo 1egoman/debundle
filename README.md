@@ -1,13 +1,17 @@
 # Javascript debundler
 
-This is a project to write a parser that cann debundle browserify and webpack (and maybe more?) bundles.
+This is a tool to decode javascript bundles produced by tools like [Webpack](https://webpack.github.io/) and [Browserify](http://browserify.org/)
+into their original, pre-bunded source.
 
-Currently, it's just an experiment. But I hope to turn it into a useful tool once I've proven it
-works.
+## Why would I want to debundle my code?
+Reasons vary, but I originally developed this to help me with a reverse engineering project I was
+working on. Needless to say, sifting through minified bundles to try and figure out how a service
+works isn't fun and is a lot easier when that bundle is broken into files and those files have
+semantic names. 
 
 ## Running
 ```
-Usage: /Users/ryan/w/1egoman/debundler/src/index.js [input file] {OPTIONS}
+Usage: ./src/index.js [input file] {OPTIONS}
 
 Options:
    --input,  -i  Bundle to debundle
@@ -26,12 +30,6 @@ Options:
 }
 ```
 
-The above is the simplest possible configuration for debundling a webpack bundle:
-- `type`: self explanatory.
-- `entryPoint`: The id of the entry point module in the bundle.
-- `knownPaths`: An object that allows you to override where a module should be located. In most
-  use-cases, it's unneeded.
-
 (To debundle a Browserify bundle, replace `webpack` the above configuration with `browserify`)
 
 ## Documentation
@@ -40,7 +38,7 @@ The above is the simplest possible configuration for debundling a webpack bundle
 A webpack or browserify bundle.
 
 ### `entryPoint` (required for webpack bundles)
-The entry point module id. If left empty in a Browserify bundle it can sometimes be calculated
+The entry point module id. If left empty in a Browserify bundle it can often be calculated
 procedurally.
 
 ### `knownPaths` (required)
