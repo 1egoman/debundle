@@ -35,7 +35,7 @@ function replacer(ast) {
     return replace
 
     function single(node) {
-      if (!node) return
+      if (node.type !== 'CallExpression' && node.type !== 'Identifier') return;
       if (node.type === 'CallExpression' && methodPath[0] !== node.callee.name) return;
       if (node.type === 'Identifier' && methodPath[0] !== node.name) return;
 

@@ -107,6 +107,35 @@ function transformRequires(modules, knownPaths={}, entryPointModuleId, type="bro
           };
         }
       );
+
+      // Also, make sure that the `module` that was injected into the closure sorrounding the module
+      // wasn't mangled, and if it was, then update the closure contents to use `module` not the
+      // mangled variable.
+      let moduleIdentifier = mod.code.params[type === 'webpack' ? 0 : 1];
+      if (moduleIdentifier && moduleIdentifier.name !== 'module') {
+        console.log(`* Replacing ${moduleIdentifier.name} with 'module'...`);
+        replace(mod.code)(
+          moduleIdentifier.name, // the function that require is in within the code.
+          node => {
+            node.name = 'module';
+            return node;
+          }
+        )
+      }
+
+      // Dito to the above for `exports`
+      let exportsIdentifier = mod.code.params[type === 'webpack' ? 1 : 2];
+      if (exportsIdentifier && exportsIdentifier.name !== 'exports') {
+        console.log(`* Replacing ${exportsIdentifier.name} with 'exports'...`);
+        replace(mod.code)(
+          exportsIdentifier.name, // the function that require is in within the code.
+          node => {
+            node.name = 'exports';
+            return node;
+          }
+        )
+      }
+
     } else {
       console.log(`* Module ${mod.id} has no require param, skipping...`);
     }
