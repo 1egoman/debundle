@@ -374,7 +374,7 @@ it('1: require(variable) => 1: require(variable)', () => {
             type: 'Identifier',
             name: 'require',
           }],
-        },
+        }
       ),
       lookup: {'./foo': 2},
     },

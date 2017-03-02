@@ -42,8 +42,8 @@ The entry point module id. If left empty in a Browserify bundle it can often be 
 procedurally.
 
 ### `knownPaths` (required)
-An object mapping module ids to the location on disk to put a given module. For example, `{1:
-"./foo", 2: "mypackage/index", 3: './bar/baz'}` would make this structure:
+An object mapping module ids to the location on disk to put a given module. For example, `{"1":
+"./foo", "2": "mypackage/index", "3": "./bar/baz"}` would make this structure:
 ```
 ├── foo.js
 ├── bar
