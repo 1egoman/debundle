@@ -1,4 +1,4 @@
-# Javascript debundler
+# debundle
 
 This is a tool to decode javascript bundles produced by tools like [Webpack](https://webpack.github.io/) and [Browserify](http://browserify.org/)
 into their original, pre-bunded source.
@@ -9,9 +9,14 @@ working on. Needless to say, sifting through minified bundles to try and figure 
 works isn't fun and is a lot easier when that bundle is broken into files and those files have
 semantic names. 
 
+## Installation
+```
+npm i -g debundle
+```
+
 ## Running
 ```
-Usage: ./src/index.js [input file] {OPTIONS}
+Usage: debundle [input file] {OPTIONS}
 
 Options:
    --input,  -i  Bundle to debundle
