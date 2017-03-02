@@ -11,6 +11,8 @@ rm -rf $TEST_BUNDLE_OUTPUT
 echo ./src/index.js -i $TEST_BUNDLE_FILE -o $TEST_BUNDLE_OUTPUT -c $TEST_BUNDLE_CONFIG
 ./src/index.js -i $TEST_BUNDLE_FILE -o $TEST_BUNDLE_OUTPUT -c $TEST_BUNDLE_CONFIG
 
+exit $?
+
 # # Are the files the same?
 # diff -r $TEST_BUNDLE_KNOWN $TEST_BUNDLE_OUTPUT
 # IS_DIFFERENT="$?"
