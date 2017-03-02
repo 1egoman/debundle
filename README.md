@@ -58,7 +58,7 @@ dist/
 }
 ```
 
-(To debundle a Browserify bundle, replace `webpack` the above configuration with `browserify`)
+(To debundle a simple Browserify bundle, replace `webpack` the above configuration with `browserify`)
 
 ## Documentation
 
