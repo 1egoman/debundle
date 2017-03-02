@@ -1,0 +1,8 @@
+language: node_js
+node_js:
+  - v6
+
+script:
+  - npm test
+  - ./test_bundles/run_test.sh test_bundles/browserify/
+  - ./test_bundles/run_test.sh test_bundles/webpack/
