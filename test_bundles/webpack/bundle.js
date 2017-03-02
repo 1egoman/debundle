@@ -151,14 +151,6 @@ module.exports = rng;
 
 /***/ }),
 /* 3 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var uuid = __webpack_require__(0);
-// var _ = require('lodash');
-
-
-/***/ }),
-/* 4 */
 /***/ (function(module, exports) {
 
 /**
@@ -284,6 +276,14 @@ number.extend('even', true, function () {
 number.extend('odd', true, function () { 
   return !!(this % 2);
 });
+
+
+/***/ }),
+/* 4 */
+/***/ (function(module, exports, __webpack_require__) {
+
+var uuid = __webpack_require__(0);
+// var _ = require('lodash');
 
 
 /***/ }),
@@ -461,9 +461,9 @@ module.exports = g;
 /* 8 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var t = __webpack_require__(4);
+var t = __webpack_require__(3);
 var uuid = __webpack_require__(0);
-var foo = __webpack_require__(3);
+var foo = __webpack_require__(4);
 
 // var core = require('@blueprintjs/core');
 
