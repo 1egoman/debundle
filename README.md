@@ -16,12 +16,35 @@ npm i -g debundle
 
 ## Running
 ```
+$ debundle
 Usage: debundle [input file] {OPTIONS}
 
 Options:
    --input,  -i  Bundle to debundle
    --output, -o  Directory to debundle code into.
-   --config, -c  Configuration directory
+   --config, -c  Configuration file
+
+$ cat debundle-config.json
+{
+  "type": "webpack",
+  "entryPoint": 1,
+  "knownPaths": {}
+}
+$ debundle -i my-bundle.js -o dist/ -c debundle-config.json
+$ tree dist/
+dist/
+├── index.js
+└── node_modules
+    ├── number
+    │   └── index.js
+    └── uuid
+        ├── index.js
+        ├── lib
+        │   ├── bytesToUuid.js
+        │   └── rng.js
+        ├── v1.js
+        └── v4.js
+4 directories, 7 files
 ```
 
 # Configuration
