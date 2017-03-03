@@ -12,6 +12,7 @@ function makeModuleTree(modules, moduleId, tree=new Arboreal(), depth=0) {
   tree.id = mod.id;
 
   if (depth > MAX_RECURSION_DEPTH) {
+    // console.warn('* Hit max recursion depth while making tree, tree may be incomplete...');
     return
   }
 

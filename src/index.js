@@ -135,7 +135,6 @@ const files = lookupTableResolver(
 );
 
 
-
 console.log('* Writing to disk...');
 const writeToDisk = require('./writeToDisk');
 writeToDisk(files);
