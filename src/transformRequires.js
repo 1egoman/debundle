@@ -28,8 +28,10 @@ function transformRequires(modules, knownPaths={}, entryPointModuleId, type="bro
       // Determine the name of the require function. In unminified bundles it's `__webpack_require__`.
       let requireFunctionIdentifier = mod.code.params[type === 'webpack' ? 2 : 0];
 
-        // Adjust the require calls to point to the files, not just the numerical module ids.
-      if (requireFunctionIdentifier && requireFunctionIdentifier.name !== 'require') {
+      // Adjust the require calls to point to the files, not just the numerical module ids.
+      // Unlike the below transforms, we always want this one no matter the name of the require
+      // function to run since we're doning more than just changing the require functon name.
+      if (requireFunctionIdentifier) {
         replace(mod.code)(
           requireFunctionIdentifier.name, // the function that require is in within the code.
           node => {

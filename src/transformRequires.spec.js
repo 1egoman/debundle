@@ -347,7 +347,6 @@ it('1: require(2) => 1: require("foo")', () => {
     },
   ];
 
-
   const knownPaths = {
   };
   const type = "webpack";
