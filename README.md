@@ -1,9 +1,9 @@
 # debundle
 
-[![Build Status](https://travis-ci.org/1egoman/debundler.svg?branch=master)](https://travis-ci.org/1egoman/debundler)
-
 This is a tool to decode javascript bundles produced by tools like [Webpack](https://webpack.github.io/) and [Browserify](http://browserify.org/)
 into their original, pre-bunded source.
+
+[![Build Status](https://travis-ci.org/1egoman/debundler.svg?branch=master)](https://travis-ci.org/1egoman/debundler)
 
 ## Why would I want to debundle my code?
 Reasons vary, but I originally developed this to help me with a reverse engineering project I was
