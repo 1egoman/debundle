@@ -1,0 +1,9 @@
+{
+  "type": "webpack",
+  "entryPoint": 8,
+  "knownPaths": {
+    "8": "./index",
+    "4": "./foo",
+    "0": "uuid"
+  }
+}
