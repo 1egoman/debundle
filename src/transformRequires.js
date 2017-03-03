@@ -24,89 +24,91 @@ function transformRequires(modules, knownPaths={}, entryPointModuleId, type="bro
       return mod;
     }
 
-    if (mod.code && mod.code.params && mod.code.params.length >= 3) {
+    if (mod.code && mod.code.params && mod.code.params.length > 0) {
       // Determine the name of the require function. In unminified bundles it's `__webpack_require__`.
-      let requireFunctionIdentifier = type == 'webpack' ? mod.code.params[2].name : 'require';
+      let requireFunctionIdentifier = mod.code.params[type === 'webpack' ? 2 : 0];
 
-      // Adjust the require calls to point to the files, not just the numerical module ids.
-      replace(mod.code)(
-        requireFunctionIdentifier, // the function that require is in within the code.
-        node => {
-          switch (node.type) {
-            case 'CallExpression':
-              // If require is called bare (why would this ever happen? IDK), then return AST
-              // without any arguments.
-              if (node.arguments.length === 0) {
-                return {
-                  type: 'CallExpression',
-                  callee: {
-                    type: 'Identifier',
-                    name: 'require',
-                  },
-                  arguments: [],
-                };
-              }
-
-              // If a module id is in the require, then do the require.
-              if (node.arguments[0].type === 'Literal') {
-                const moduleToRequire = modules.find(i => i.id === node.arguments[0].value);
-
-                // FIXME:
-                // In the spotify bundle someone did a require(null)? What is that supposed to do?
-                if (!moduleToRequire) {
-                  // throw new Error(`Module ${node.arguments[0].value} cannot be found, but another module (${mod.id}) requires it in.`);
-                  console.warn(`Module ${node.arguments[0].value} cannot be found, but another module (${mod.id}) requires it in.`);
-                  return
+        // Adjust the require calls to point to the files, not just the numerical module ids.
+      if (requireFunctionIdentifier && requireFunctionIdentifier.name !== 'require') {
+        replace(mod.code)(
+          requireFunctionIdentifier.name, // the function that require is in within the code.
+          node => {
+            switch (node.type) {
+              case 'CallExpression':
+                // If require is called bare (why would this ever happen? IDK), then return AST
+                // without any arguments.
+                if (node.arguments.length === 0) {
+                  return {
+                    type: 'CallExpression',
+                    callee: {
+                      type: 'Identifier',
+                      name: 'require',
+                    },
+                    arguments: [],
+                  };
                 }
 
-                // Get a relative path from the current module to the module to require in.
-                let moduleLocation = path.relative(
-                  // This module's path
-                  path.dirname(getModuleLocation(modules, mod, knownPaths, '/', /* appendTrailingIndexFilesToNodeModules */ true, entryPointModuleId)),
-                  // The module to import relative to the current module
-                  getModuleLocation(modules, moduleToRequire, knownPaths, '/', /* appendTrailingIndexFilesToNodeModules */ false, entryPointModuleId)
-                );
+                // If a module id is in the require, then do the require.
+                if (node.arguments[0].type === 'Literal') {
+                  const moduleToRequire = modules.find(i => i.id === node.arguments[0].value);
 
-                // If the module path references a node_module, then remove the node_modules prefix
-                if (moduleLocation.indexOf('node_modules/') !== -1) {
-                  moduleLocation = `${moduleLocation.match(/node_modules\/(.+)$/)[1]}`
-                } else if (!moduleLocation.startsWith('.')) {
-                  // Make relative paths start with a ./
-                  moduleLocation = `./${moduleLocation}`;
+                  // FIXME:
+                  // In the spotify bundle someone did a require(null)? What is that supposed to do?
+                  if (!moduleToRequire) {
+                    // throw new Error(`Module ${node.arguments[0].value} cannot be found, but another module (${mod.id}) requires it in.`);
+                    console.warn(`Module ${node.arguments[0].value} cannot be found, but another module (${mod.id}) requires it in.`);
+                    return node;
+                  }
+
+                  // Get a relative path from the current module to the module to require in.
+                  let moduleLocation = path.relative(
+                    // This module's path
+                    path.dirname(getModuleLocation(modules, mod, knownPaths, '/', /* appendTrailingIndexFilesToNodeModules */ true, entryPointModuleId)),
+                    // The module to import relative to the current module
+                    getModuleLocation(modules, moduleToRequire, knownPaths, '/', /* appendTrailingIndexFilesToNodeModules */ false, entryPointModuleId)
+                  );
+
+                  // If the module path references a node_module, then remove the node_modules prefix
+                  if (moduleLocation.indexOf('node_modules/') !== -1) {
+                    moduleLocation = `${moduleLocation.match(/node_modules\/(.+)$/)[1]}`
+                  } else if (!moduleLocation.startsWith('.')) {
+                    // Make relative paths start with a ./
+                    moduleLocation = `./${moduleLocation}`;
+                  }
+
+                  return {
+                    type: 'CallExpression',
+                    callee: {
+                      type: 'Identifier',
+                      name: 'require',
+                    },
+                    arguments: [
+                      // Substitute in the module location on disk
+                      {type: 'Literal', value: moduleLocation, raw: moduleLocation},
+                      ...node.arguments.slice(1),
+                    ],
+                  };
+                } else if (node.arguments[0].type === 'Identifier') {
+                  // Otherwise, just pass through the AST.
+                  return {
+                    type: 'CallExpression',
+                    callee: {
+                      type: 'Identifier',
+                      name: 'require',
+                    },
+                    arguments: node.arguments,
+                  };
                 }
 
+              case 'Identifier':
                 return {
-                  type: 'CallExpression',
-                  callee: {
-                    type: 'Identifier',
-                    name: 'require',
-                  },
-                  arguments: [
-                    // Substitute in the module location on disk
-                    {type: 'Literal', value: moduleLocation, raw: moduleLocation},
-                    ...node.arguments.slice(1),
-                  ],
+                  type: 'Identifier',
+                  name: 'require',
                 };
-              } else if (node.arguments[0].type === 'Identifier') {
-                // Otherwise, just pass through the AST.
-                return {
-                  type: 'CallExpression',
-                  callee: {
-                    type: 'Identifier',
-                    name: 'require',
-                  },
-                  arguments: node.arguments,
-                };
-              }
-
-            case 'Identifier':
-              return {
-                type: 'Identifier',
-                name: 'require',
-              };
-          };
-        }
-      );
+            };
+          }
+        );
+      }
 
       // Also, make sure that the `module` that was injected into the closure sorrounding the module
       // wasn't mangled, and if it was, then update the closure contents to use `module` not the

@@ -3,6 +3,48 @@ const path = require('path');
 const mkdirp = require('mkdirp');
 const escodegen = require('escodegen');
 
+// The below adds `module.exports = ` before the code.
+function defaultExportData(code) {
+  return {
+    "type": "Program",
+    "start": 0,
+    "end": 199,
+    "body": [
+      {
+        "type": "ExpressionStatement",
+        "start": 179,
+        "end": 199,
+        "expression": {
+          "type": "AssignmentExpression",
+          "start": 179,
+          "end": 199,
+          "operator": "=",
+          "left": {
+            "type": "MemberExpression",
+            "start": 179,
+            "end": 193,
+            "object": {
+              "type": "Identifier",
+              "start": 179,
+              "end": 185,
+              "name": "module"
+            },
+            "property": {
+              "type": "Identifier",
+              "start": 186,
+              "end": 193,
+              "name": "exports"
+            },
+            "computed": false
+          },
+          "right": code,
+        }
+      }
+    ],
+    "sourceType": "module"
+  };
+}
+
 function writeFile(filePath, contents) {
   console.log(`* Writing file ${filePath}`);
   return fs.writeFileSync(filePath, contents);
@@ -12,13 +54,12 @@ function writeToDisk(files) {
   return files.forEach(({filePath, code}) => {
     let directory = path.dirname(filePath);
     try {
-      code = escodegen.generate(code.body, {
-        format: { indent: { style: '  ' } }, // 2 space indentation
-      });
+      code = escodegen.generate(
+        code.body || defaultExportData(code), // render the wrapping function's data or prepend non-function data with module.exports
+        { format: { indent: { style: '  ' } } } // 2 space indentation
+      );
     } catch(e) {
-      // FIXME: why does the code generator hickup here?
-      console.log(`* Couldn't parse ast to file for ${filePath}.`);
-      return
+      throw new Error(`* Couldn't parse ast to file for ${filePath}.`);
     }
 
     if (fs.existsSync(directory)) {
