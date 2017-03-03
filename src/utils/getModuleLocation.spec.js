@@ -100,8 +100,7 @@ it(`should do a lookup within another module (0) to determine a path to a given 
   assert.deepEqual(output, path.join(pathPrefix, 'foo'));
 });
 
-// NOTE: need some work to make this one pass
-it.skip(`should do a lookup within another module (0) where that module has a knownPath`, () => {
+it(`should do a lookup within another module (0) where that module has a knownPath`, () => {
   const modules = [
     {
       id: 1,
@@ -123,7 +122,84 @@ it.skip(`should do a lookup within another module (0) where that module has a kn
   const pathPrefix = 'dist';
   const output = getModuleLocation(modules, modules[1], knownPaths, pathPrefix);
 
-  assert.deepEqual(output, path.join(pathPrefix, 'foo', 'bar', 'baz'));
+  assert.deepEqual(output, path.join(pathPrefix, 'foo', 'baz'));
+});
+
+it(`should do a lookup within another module (0) where that module has a knownPath and the lookup uses a ../`, () => {
+  const modules = [
+    {
+      id: 1,
+      code: generateFunction(
+        generateRequire(2)
+      ),
+      lookup: {'../baz': 2},
+    },
+    {
+      id: 2,
+      code: generateFunction(),
+      lookup: {},
+    },
+  ];
+
+  const knownPaths = {
+    1: './foo/bar/index',
+  };
+  const pathPrefix = 'dist';
+  const output = getModuleLocation(modules, modules[1], knownPaths, pathPrefix);
+
+  assert.deepEqual(output, path.join(pathPrefix, 'foo', 'baz'));
+});
+
+it(`should do a lookup within another module (0) where that module has a knownPath and the lookup is a node_module`, () => {
+  const modules = [
+    {
+      id: 1,
+      code: generateFunction(
+        generateRequire(2)
+      ),
+      lookup: {'my-module': 2},
+    },
+    {
+      id: 2,
+      code: generateFunction(),
+      lookup: {},
+    },
+  ];
+
+  const knownPaths = {
+    1: './foo/bar/index',
+  };
+  const pathPrefix = 'dist';
+  const output = getModuleLocation(modules, modules[1], knownPaths, pathPrefix);
+
+  // NOTE: no index at the end because `appendTrailingIndexFilesToNodeModules` is false
+  assert.deepEqual(output, path.join(pathPrefix, 'node_modules', 'my-module/'));
+});
+
+it(`should do a lookup within another module (0) where that module has a knownPath that is a node_module`, () => {
+  const modules = [
+    {
+      id: 1,
+      code: generateFunction(
+        generateRequire(2)
+      ),
+      lookup: {'my-module': 2},
+    },
+    {
+      id: 2,
+      code: generateFunction(),
+      lookup: {},
+    },
+  ];
+
+  const knownPaths = {
+    2: 'foo/bar',
+  };
+  const pathPrefix = 'dist';
+  const output = getModuleLocation(modules, modules[1], knownPaths, pathPrefix);
+
+  // NOTE: no index at the end because `appendTrailingIndexFilesToNodeModules` is false
+  assert.deepEqual(output, path.join(pathPrefix, 'node_modules', 'foo', 'bar/'));
 });
 
 // Using node_modules
