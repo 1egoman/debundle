@@ -1,5 +1,7 @@
 # debundle
 
+[![Build Status](https://travis-ci.org/1egoman/debundler.svg?branch=master)](https://travis-ci.org/1egoman/debundler)
+
 This is a tool to decode javascript bundles produced by tools like [Webpack](https://webpack.github.io/) and [Browserify](http://browserify.org/)
 into their original, pre-bunded source.
 
