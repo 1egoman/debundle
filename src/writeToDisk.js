@@ -53,13 +53,21 @@ function writeFile(filePath, contents) {
 function writeToDisk(files) {
   return files.forEach(({filePath, code}) => {
     let directory = path.dirname(filePath);
+
+    // Any modules that are wrapped in a function (because they were bundled code) should be
+    // collapsed with the wrapping funtion removed.
+    if (code.body && code.body.type === 'BlockStatement') {
+      code.type = 'Program';
+      code.body = code.body.body;
+    }
+
     try {
       code = escodegen.generate(
-        code.body || defaultExportData(code), // render the wrapping function's data or prepend non-function data with module.exports
+        code.type === 'Program' ? code : defaultExportData(code), // render the wrapping function's data or prepend non-function data with module.exports
         { format: { indent: { style: '  ' } } } // 2 space indentation
       );
     } catch(e) {
-      throw new Error(`* Couldn't parse ast to file for ${filePath}.`);
+      throw new Error(`* Couldn't parse ast to file for ${filePath}: ${e}`);
     }
 
     if (fs.existsSync(directory)) {
