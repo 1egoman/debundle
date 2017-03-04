@@ -93,3 +93,10 @@ of the modules AST can't be found (because it's in a different location in the b
 This is indicated as an array of strings / numbers used to traverse through the AST data structure.
 
 For example, `["foo", "bar", 0, "baz", 1]` would get `ast.foo.bar[0].baz[1]`.
+
+# Contributing
+- Debundler entry point is `./src/index.js` (that's how you run it!)
+- A bunch of sample bundles are in `test_bundles/`. A script, `test_bundles/run_test.sh` can run the
+  debundler against a given bundle and try to debundle it into `dist/`. (CI will, as part of running
+  tests, debundle all the bundles in that folder.)
+- Make sure any contribution passes the tests: `npm test`
