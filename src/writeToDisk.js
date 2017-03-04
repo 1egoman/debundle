@@ -51,7 +51,7 @@ function writeFile(filePath, contents) {
 }
 
 function writeToDisk(files) {
-  return files.forEach(({filePath, code}) => {
+  return Promise.all(files.map(({filePath, code}) => {
     let directory = path.dirname(filePath);
 
     // Any modules that are wrapped in a function (because they were bundled code) should be
@@ -74,15 +74,17 @@ function writeToDisk(files) {
       return writeFile(`${path.normalize(filePath)}.js`, code);
     } else {
       console.log(`* ${directory} doesn't exist, creating...`);
-      mkdirp(directory, (err, resp) => {
-        if (err) {
-          throw err;
-        } else {
-          return writeFile(`${filePath}.js`, code);
-        }
+      return new Promise((resolve, reject) => {
+        mkdirp(directory, (err, resp) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(writeFile(`${filePath}.js`, code));
+          }
+        });
       });
     }
-  });
+  }));
 }
 
 module.exports = writeToDisk;

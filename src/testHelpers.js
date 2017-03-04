@@ -6,6 +6,13 @@
 // )
 //
 
+function generateProgram(...body) {
+  return {
+    type: 'Program',
+    body,
+  };
+}
+
 function generateFunction(...body) {
   return {
     type: 'FunctionDeclaration',
@@ -42,4 +49,5 @@ function generateRequire(requireContents) {
 module.exports = {
   generateFunction,
   generateRequire,
+  generateProgram,
 };

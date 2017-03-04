@@ -31,6 +31,7 @@
   },
   "devDependencies": {
     "mocha": "^3.2.0",
+    "mock-fs": "^4.1.0",
     "nyc": "^10.1.2"
   },
   "bin": {
