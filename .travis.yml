@@ -3,5 +3,5 @@ node_js:
   - v6
 
 script:
-  - npm test
+  - npm run coverage
   - for bundle in $(ls -d test_bundles/*/); do ./test_bundles/run_test.sh $bundle; done

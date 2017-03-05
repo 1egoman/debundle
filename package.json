@@ -4,7 +4,9 @@
   "description": "",
   "main": "src/index.js",
   "scripts": {
-    "test": "mocha src/*.spec.js src/**/*.spec.js"
+    "test": "mocha src/*.spec.js src/**/*.spec.js",
+    "coverage": "./node_modules/.bin/nyc --exclude \"**/*.spec.js\" npm test && ./node_modules/.bin/nyc report --reporter=html",
+    "coverageopen": "open coverage/index.html"
   },
   "keywords": [
     "debundle",
