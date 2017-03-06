@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const inquirer = require('inquirer');
 const args = require('minimist')(process.argv.slice(2));
+const convertToIntegerKey = require('./utils/convertToIntegerKey');
 
 const bundleLocation = args._[0] || args.input || args.i;
 const outputLocation = args.output || args.o;
@@ -23,13 +24,6 @@ if (!(bundleLocation && outputLocation && configPath)) {
 }
 
 const config = JSON.parse(fs.readFileSync(args.config || args.c));
-
-function convertToIntegerKey(obj) {
-  return Object.keys(obj).reduce((acc, i) => {
-    acc[parseInt(i) || i] = obj[i];
-    return acc;
-  }, {});
-}
 
 if (config.knownPaths) {
   config.knownPaths = convertToIntegerKey(config.knownPaths);
