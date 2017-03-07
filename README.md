@@ -1,15 +1,14 @@
 # debundle
 
 This is a tool to decode javascript bundles produced by tools like [Webpack](https://webpack.github.io/) and [Browserify](http://browserify.org/)
-into their original, pre-bunded source.
+into their original, pre-bundled source.
 
 [![Build Status](https://travis-ci.org/1egoman/debundler.svg?branch=master)](https://travis-ci.org/1egoman/debundler)
 
 ## Why would I want to debundle my code?
-Reasons vary, but I originally developed this to help me with a reverse engineering project I was
-working on. Needless to say, sifting through minified bundles to try and figure out how a service
-works isn't fun and is a lot easier when that bundle is broken into files and those files have
-semantic names. 
+Reasons vary, but this tool was originally developed to help me with a reverse engineering project.
+Needless to say, sifting through minified bundles to try and figure out how a service works isn't
+fun and is a lot easier when that bundle is broken into files and those files have semantic names. 
 
 ## Installation
 ```
@@ -95,8 +94,14 @@ This is indicated as an array of strings / numbers used to traverse through the 
 For example, `["foo", "bar", 0, "baz", 1]` would get `ast.foo.bar[0].baz[1]`.
 
 # Contributing
+- After cloning down the project, run `npm install` - that should be it.
 - Debundler entry point is `./src/index.js` (that's how you run it!)
 - A bunch of sample bundles are in `test_bundles/`. A script, `test_bundles/run_test.sh` can run the
   debundler against a given bundle and try to debundle it into `dist/`. (CI will, as part of running
   tests, debundle all the bundles in that folder.)
-- Make sure any contribution passes the tests: `npm test`
+- Make sure any contribution pass the tests: `npm test`
+
+# Legal note
+Some companies specify in their terms of service that their code cannot be "reverse engineered".
+Debundling can definitely (depending on how you're using the code) fall under that umbrella.
+Understand what you are doing so you don't break any agreements :smile:

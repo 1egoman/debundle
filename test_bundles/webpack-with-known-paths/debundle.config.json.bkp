@@ -1,12 +1,9 @@
 {
   "type": "webpack",
+  "entryPoint": 8,
   "knownPaths": {
-    "216": "@blueprintjs/core/src/components",
-    "73": "./blah/querystring",
-    "70": "./foo/somethingThatImportsQuerystring",
-
-    "90": "uuid/v1",
-    "91": "uuid/rng",
-    "92": "uuid/bytesToUuid"
+    "8": "./index",
+    "4": "./foo",
+    "0": "uuid"
   }
 }

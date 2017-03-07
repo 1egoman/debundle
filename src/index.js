@@ -6,6 +6,10 @@ const inquirer = require('inquirer');
 const args = require('minimist')(process.argv.slice(2));
 const convertToIntegerKey = require('./utils/convertToIntegerKey');
 
+// ----------------------------------------------------------------------------
+// Set up configuration
+// ----------------------------------------------------------------------------
+
 const bundleLocation = args._[0] || args.input || args.i;
 const outputLocation = args.output || args.o;
 const configPath = args.config || args.c;
@@ -42,7 +46,9 @@ if (!config.moduleAst) {
   console.log(`* Using default AST location for ${config.type}...`);
 }
 
-
+// ----------------------------------------------------------------------------
+// Read in bundle
+// ----------------------------------------------------------------------------
 
 console.log('* Reading bundle...');
 const bundleContents = fs.readFileSync(bundleLocation);
@@ -60,17 +66,9 @@ if (config.entryPoint === undefined) {
 }
 
 
-
-
-// TODO
-// KNOWN BUGS
-// - If a package has a nonstandard location for it's root file (ie, not in index.js), and that
-// location is in a folder, then we aren't smart enough to put that in the right location.
-// ie, blueprint has it's root in `src/index.js` and it requires `./common` from that file, which
-// when the root file is put in `index.js` it can't resolve.
-
-// Browserify bundles start with an IIFE. Fetch the IIFE and get it's arguments (what we care about,
-// and where all the module code is located)
+// ----------------------------------------------------------------------------
+// Find all the modules in the bundle via `moduleAst`
+// ----------------------------------------------------------------------------
 
 let iifeModules = ast;
 while (true) {
@@ -84,18 +82,10 @@ while (true) {
   }
 }
 
-// Known paths are inserted absolutely into requires. They need to be made relative.
-//
-
-
-
-// Webpack bundle
-// let iifeModules = ast.body[0].expression.arguments[0];
-
-
-
-
-
+// ------------------------------------------------------------------------------
+// Given the path to the modules in the AST and the AST, pull out the modules and normalize
+// them to a predefined format.
+// ------------------------------------------------------------------------------
 
 console.log('* Decoding modules...');
 
@@ -110,14 +100,22 @@ if (config.type === 'browserify') {
   modules = webpackDecoder(iifeModules, config.knownPaths);
 }
 
+
+
+// ------------------------------------------------------------------------------
 // Transform the module id in each require call into a relative path to the module.
 // var a = require(1) => var a = require('./path/to/a')
+// ------------------------------------------------------------------------------
+
 console.log('* Reassembling requires...');
 const transformRequires = require('./transformRequires');
 modules = transformRequires(modules, config.knownPaths, config.entryPoint, config.type);
 
+// ------------------------------------------------------------------------------
 // Take the array of modules and figure out where to put each module on disk.
 // module 1 => ./dist/path/to/a.js
+// ------------------------------------------------------------------------------
+
 console.log('* Resolving files...');
 const lookupTableResolver = require('./lookupTable');
 const files = lookupTableResolver(
@@ -128,6 +126,9 @@ const files = lookupTableResolver(
   outputLocation
 );
 
+// ------------------------------------------------------------------------------
+// Finally, write the bundle to disk in the specified output location.
+// ------------------------------------------------------------------------------
 
 console.log('* Writing to disk...');
 const writeToDisk = require('./writeToDisk');
