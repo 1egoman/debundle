@@ -3,7 +3,9 @@ function convertToIntegerKey(obj, gracefulFailure=true) {
     let key = parseInt(i);
     let value = obj[i];
 
-    if (isNaN(key) && gracefulFailure) {
+    if (!isNaN(key)) {
+      key = i; // Just make the key the same as it was before
+    } else if (isNaN(key) && gracefulFailure) {
       key = i; // Just make the key the same as it was before
     } else {
       throw new Error(`Key ${i} isn't an integer!`);
