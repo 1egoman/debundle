@@ -71,14 +71,16 @@ if (config.entryPoint === undefined) {
 // ----------------------------------------------------------------------------
 
 let iifeModules = ast;
+let moduleAstPathTriedSoFar = [];
 while (true) {
   let operation = config.moduleAst.shift();
-  if (operation === undefined) {
+  if (!iifeModules) {
+    throw new Error(`Locating the module AST failed. Please specifify a valid manual ast path in your config file with the key \`moduleAst\`. We got as far as ${moduleAstPathTriedSoFar.join('.')} before an error occured.`);
+  } else if (operation === undefined) {
     break;
-  } else if (!iifeModules) {
-    throw new Error(`Locating the module AST failed. Please specifify a valid manual ast path in your config file with the key \`moduleAst\``);
   } else {
     iifeModules = iifeModules[operation];
+    moduleAstPathTriedSoFar.push(operation);
   }
 }
 
