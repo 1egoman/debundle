@@ -1,3 +1,5 @@
+![Debundle](debundle_logo.png)
+
 # debundle
 
 This is a tool to decode javascript bundles produced by tools like [Webpack](https://webpack.github.io/) and [Browserify](http://browserify.org/)
