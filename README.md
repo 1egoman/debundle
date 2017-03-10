@@ -5,7 +5,7 @@
 This is a tool to decode javascript bundles produced by tools like [Webpack](https://webpack.github.io/) and [Browserify](http://browserify.org/)
 into their original, pre-bundled source.
 
-[![Build Status](https://travis-ci.org/1egoman/debundler.svg?branch=master)](https://travis-ci.org/1egoman/debundler)
+[![Build Status](https://travis-ci.org/1egoman/debundle.svg?branch=master)](https://travis-ci.org/1egoman/debundler)
 
 ## Why would I want to debundle my code?
 Reasons vary, but this tool was originally developed to help me with a reverse engineering project.
