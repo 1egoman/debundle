@@ -14,7 +14,16 @@ const getModuleLocation = require('./utils/getModuleLocation');
 //
 // Also takes an optional argument `knownPaths`, which is a key value mapping where key is a module
 // id and the value is the patht to that module. No `.js` needed. Ie, {1: '/path/to/my/module'}
-function transformRequires(modules, knownPaths={}, entryPointModuleId, type="browserify") {
+function transformRequires(
+  modules,
+  knownPaths={},
+  entryPointModuleId,
+  type="browserify",
+  // If true, replace identifiers in the AST that map to require with the identifier `require`
+  // If false, add to the top of the AST a `const require = n;` where n is the identifier that maps
+  // to require in the module. See README for a better explaination.
+  replaceRequireInline=false
+) {
   return modules.map(mod => {
     let moduleDescriptor = mod.code.body;
 
@@ -42,10 +51,12 @@ function transformRequires(modules, knownPaths={}, entryPointModuleId, type="bro
                 if (node.arguments.length === 0) {
                   return {
                     type: 'CallExpression',
-                    callee: {
+                    // If replacing all require calls in the ast with the identifier `require`, use
+                    // that identifier (`require`). Otherwise, keep it the same.
+                    callee: replaceRequireInline ? {
                       type: 'Identifier',
                       name: 'require',
-                    },
+                    } : requireFunctionIdentifier,
                     arguments: [],
                   };
                 }
@@ -80,7 +91,12 @@ function transformRequires(modules, knownPaths={}, entryPointModuleId, type="bro
 
                   return {
                     type: 'CallExpression',
-                    callee: requireFunctionIdentifier,
+                    // If replacing all require calls in the ast with the identifier `require`, use
+                    // that identifier (`require`). Otherwise, keep it the same.
+                    callee: replaceRequireInline ? {
+                      type: 'Identifier',
+                      name: 'require',
+                    } : requireFunctionIdentifier,
                     arguments: [
                       // Substitute in the module location on disk
                       {type: 'Literal', value: moduleLocation, raw: moduleLocation},
@@ -88,8 +104,20 @@ function transformRequires(modules, knownPaths={}, entryPointModuleId, type="bro
                     ],
                   };
                 } else if (node.arguments[0].type === 'Identifier') {
-                  // Otherwise, just pass through the AST.
-                  return node;
+                  if (replaceRequireInline) {
+                    // If replacing the require symbol inline, then replace with the identifier `require`
+                    return {
+                      type: 'CallExpression',
+                      callee: {
+                        type: 'Identifier',
+                        name: 'require',
+                      },
+                      arguments: node.arguments,
+                    };
+                  } else {
+                    // Otherwise, just pass through the AST.
+                    return node;
+                  }
                 }
 
               case 'Identifier':
@@ -101,8 +129,9 @@ function transformRequires(modules, knownPaths={}, entryPointModuleId, type="bro
           }
         );
 
-        // Prepend some ast that aliases the minified require variable to `require`.
-        if (requireFunctionIdentifier.name !== 'require' && mod.code && mod.code.body && mod.code.body.body) {
+        // Prepend some ast that aliases the minified require variable to `require` if require
+        // hasn't been replaced inline in the code.
+        if (!replaceRequireInline && requireFunctionIdentifier.name !== 'require' && mod.code && mod.code.body && mod.code.body.body) {
           mod.code.body.body.unshift({
             "type": "VariableDeclaration",
             "declarations": [
@@ -147,7 +176,6 @@ function transformRequires(modules, knownPaths={}, entryPointModuleId, type="bro
           }
         )
       }
-
     } else {
       console.log(`* Module ${mod.id} has no require param, skipping...`);
     }

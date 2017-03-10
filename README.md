@@ -93,6 +93,55 @@ Instructions to get a reference to the module ast. Only required in weird bundle
 of the modules AST can't be found (because it's in a different location in the bundle, for example).
 This is indicated as an array of strings / numbers used to traverse through the AST data structure.
 
+### `replaceRequiresInline`
+Defaults to `true`. When working on a minified bundle, tell debundle how to adjust `require` 
+statements to work in a node context. This is required because often minifiers will change the
+identifier that require is set to in the module wrapping function to save on bytes.
+
+Imaging this module is being debundled:
+```
+// ...
+function (module, exports, n) {
+  const myOtherModule = n(5);
+  console.log(myOtherModule);
+  function nestedFunction() {
+    const n = 123;
+  }
+}
+// ...
+```
+
+With `replaceRequiresInline` set to true, it'd look like this:
+```
+const myOtherModule = require(5);
+console.log(myOtherModule);
+function nestedFunction() {
+  const require = 123;
+}
+```
+
+- Is able to be rebundled by popular bundlers (browserify and webpack) and can be run in node
+- Unfortunately, isn't able to handle scoping very well, and changes any coincidentally matching
+symbols inside inner lexical scopes too, as can be seen above.
+
+With `replaceRequiresInline` set to false, it'd look like this:
+```
+const n = require;
+const myOtherModule = n(5);
+console.log(myOtherModule);
+function nestedFunction() {
+  const n = 123;
+}
+```
+
+- Handles scoping well - the inner scope maintains its value.
+- Is able to be rebundled by *webpack* and can be run in node, but browserify chokes. Because
+browserify is looking for the `require` function call when crawling your app, it isn't able to see
+through the variable assignment.
+- Isn't as nice to look at. ¯\_(ツ)_/¯
+
+
+
 For example, `["foo", "bar", 0, "baz", 1]` would get `ast.foo.bar[0].baz[1]`.
 
 # Contributing

@@ -46,6 +46,8 @@ if (!config.moduleAst) {
   console.log(`* Using default AST location for ${config.type}...`);
 }
 
+config.replaceRequiresInline = typeof config.replaceRequiresInline === 'undefined' ? true : config.replaceRequiresInline;
+
 // ----------------------------------------------------------------------------
 // Read in bundle
 // ----------------------------------------------------------------------------
@@ -111,7 +113,7 @@ if (config.type === 'browserify') {
 
 console.log('* Reassembling requires...');
 const transformRequires = require('./transformRequires');
-modules = transformRequires(modules, config.knownPaths, config.entryPoint, config.type);
+modules = transformRequires(modules, config.knownPaths, config.entryPoint, config.type, config.replaceRequiresInline);
 
 // ------------------------------------------------------------------------------
 // Take the array of modules and figure out where to put each module on disk.
