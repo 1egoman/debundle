@@ -80,10 +80,7 @@ function transformRequires(modules, knownPaths={}, entryPointModuleId, type="bro
 
                   return {
                     type: 'CallExpression',
-                    callee: {
-                      type: 'Identifier',
-                      name: 'require',
-                    },
+                    callee: requireFunctionIdentifier,
                     arguments: [
                       // Substitute in the module location on disk
                       {type: 'Literal', value: moduleLocation, raw: moduleLocation},
@@ -92,14 +89,7 @@ function transformRequires(modules, knownPaths={}, entryPointModuleId, type="bro
                   };
                 } else if (node.arguments[0].type === 'Identifier') {
                   // Otherwise, just pass through the AST.
-                  return {
-                    type: 'CallExpression',
-                    callee: {
-                      type: 'Identifier',
-                      name: 'require',
-                    },
-                    arguments: node.arguments,
-                  };
+                  return node;
                 }
 
               case 'Identifier':
@@ -110,6 +100,24 @@ function transformRequires(modules, knownPaths={}, entryPointModuleId, type="bro
             };
           }
         );
+
+        // Prepend some ast that aliases the minified require variable to `require`.
+        if (requireFunctionIdentifier.name !== 'require' && mod.code && mod.code.body && mod.code.body.body) {
+          mod.code.body.body.unshift({
+            "type": "VariableDeclaration",
+            "declarations": [
+              {
+                "type": "VariableDeclarator",
+                "id": requireFunctionIdentifier,
+                "init": {
+                  "type": "Identifier",
+                  "name": "require",
+                }
+              }
+            ],
+            "kind": "const",
+          });
+        }
       }
 
       // Also, make sure that the `module` that was injected into the closure sorrounding the module
