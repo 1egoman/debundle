@@ -93,8 +93,8 @@ Instructions to get a reference to the module ast. Only required in weird bundle
 of the modules AST can't be found (because it's in a different location in the bundle, for example).
 This is indicated as an array of strings / numbers used to traverse through the AST data structure.
 
-### `replaceRequiresInline`
-Defaults to `true`. When working on a minified bundle, tell debundle how to adjust `require` 
+### `replaceRequires`
+Defaults to `"inline"`. When working on a minified bundle, tell debundle how to adjust `require` 
 statements to work in a node context. This is required because often minifiers will change the
 identifier that require is set to in the module wrapping function to save on bytes.
 
@@ -111,7 +111,7 @@ function (module, exports, n) {
 // ...
 ```
 
-With `replaceRequiresInline` set to true, it'd look like this:
+With `replaceRequires` set to `"inline"`, it'd look like this:
 ```
 const myOtherModule = require(5);
 console.log(myOtherModule);
@@ -124,7 +124,7 @@ function nestedFunction() {
 - Unfortunately, isn't able to handle scoping very well, and changes any coincidentally matching
 symbols inside inner lexical scopes too, as can be seen above.
 
-With `replaceRequiresInline` set to false, it'd look like this:
+With `replaceRequires` set to `"variable"`, it'd look like this:
 ```
 const n = require;
 const myOtherModule = n(5);

@@ -22,7 +22,7 @@ function transformRequires(
   // If true, replace identifiers in the AST that map to require with the identifier `require`
   // If false, add to the top of the AST a `const require = n;` where n is the identifier that maps
   // to require in the module. See README for a better explaination.
-  replaceRequireInline=false
+  replaceRequires=false
 ) {
   return modules.map(mod => {
     let moduleDescriptor = mod.code.body;
@@ -53,7 +53,7 @@ function transformRequires(
                     type: 'CallExpression',
                     // If replacing all require calls in the ast with the identifier `require`, use
                     // that identifier (`require`). Otherwise, keep it the same.
-                    callee: replaceRequireInline ? {
+                    callee: replaceRequires === 'inline' ? {
                       type: 'Identifier',
                       name: 'require',
                     } : requireFunctionIdentifier,
@@ -93,7 +93,7 @@ function transformRequires(
                     type: 'CallExpression',
                     // If replacing all require calls in the ast with the identifier `require`, use
                     // that identifier (`require`). Otherwise, keep it the same.
-                    callee: replaceRequireInline ? {
+                    callee: replaceRequires === 'inline' ? {
                       type: 'Identifier',
                       name: 'require',
                     } : requireFunctionIdentifier,
@@ -104,7 +104,7 @@ function transformRequires(
                     ],
                   };
                 } else if (node.arguments[0].type === 'Identifier') {
-                  if (replaceRequireInline) {
+                  if (replaceRequires === 'inline') {
                     // If replacing the require symbol inline, then replace with the identifier `require`
                     return {
                       type: 'CallExpression',
@@ -131,7 +131,10 @@ function transformRequires(
 
         // Prepend some ast that aliases the minified require variable to `require` if require
         // hasn't been replaced inline in the code.
-        if (!replaceRequireInline && requireFunctionIdentifier.name !== 'require' && mod.code && mod.code.body && mod.code.body.body) {
+        if (
+          replaceRequires === 'variable' && requireFunctionIdentifier.name !== 'require' &&
+          mod.code && mod.code.body && mod.code.body.body
+        ) {
           mod.code.body.body.unshift({
             "type": "VariableDeclaration",
             "declarations": [
