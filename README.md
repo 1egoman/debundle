@@ -138,7 +138,7 @@ function nestedFunction() {
 - Is able to be rebundled by *webpack* and can be run in node, but browserify chokes. Because
 browserify is looking for the `require` function call when crawling your app, it isn't able to see
 through the variable assignment.
-- Isn't as nice to look at. ¯\_(ツ)_/¯
+- Isn't as nice to look at. `¯\_(ツ)_/¯`
 
 
 
