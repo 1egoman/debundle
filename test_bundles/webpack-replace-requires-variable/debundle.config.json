@@ -1,0 +1,14 @@
+{
+  "type": "webpack",
+  "entryPoint": 8,
+  "replaceRequires": "variable",
+  "knownPaths": {
+    "11111216": "@blueprintjs/core/src/components",
+    "1111173": "./blah/querystring",
+    "1111170": "./foo/somethingThatImportsQuerystring",
+
+    "1111190": "uuid/v1",
+    "1111191": "uuid/rng",
+    "1111192": "uuid/bytesToUuid"
+  }
+}
