@@ -419,8 +419,44 @@ it('1: mangledRequire(2) => 1: mangledRequire("./2")', () => {
   const expectedOutput = [
     {
       id: 1,
+      code: generateFunction(
+        generateRequire('./2')
+      ),
+    },
+    {
+      id: 2,
+      code: generateFunction(),
+    },
+  ];
+
+
+  const knownPaths = {
+  };
+  const entryPointModuleId = 1;
+  const type = "webpack";
+  const output = transformRequires(modules, knownPaths, entryPointModuleId, type);
+
+  assert.deepEqual(output, expectedOutput);
+});
+
+it('1: mangledRequire => 1: require  (where mangledRequire is just an identifier)', () => {
+  const modules = [
+    {
+      id: 1,
       code: generateMangledFunction(
-        generateMangledRequire('./2')
+        {type: 'Identifier', name: 'mangledRequire'}
+      ),
+    },
+    {
+      id: 2,
+      code: generateFunction(),
+    },
+  ];
+  const expectedOutput = [
+    {
+      id: 1,
+      code: generateFunction(
+        {type: 'Identifier', name: 'require'}
       ),
     },
     {

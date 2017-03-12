@@ -22,7 +22,7 @@ function transformRequires(
   // If true, replace identifiers in the AST that map to require with the identifier `require`
   // If false, add to the top of the AST a `const require = n;` where n is the identifier that maps
   // to require in the module. See README for a better explaination.
-  replaceRequires=false
+  replaceRequires="inline"
 ) {
   return modules.map(mod => {
     let moduleDescriptor = mod.code.body;
@@ -36,7 +36,6 @@ function transformRequires(
     if (mod.code && mod.code.params && mod.code.params.length > 0) {
       // Determine the name of the require function. In unminified bundles it's `__webpack_require__`.
       let requireFunctionIdentifier = mod.code.params[type === 'webpack' ? 2 : 0];
-      console.log('requireFunctionIdentifier', requireFunctionIdentifier);
 
       // Adjust the require calls to point to the files, not just the numerical module ids.
       // Unlike the below transforms, we always want this one no matter the name of the require
@@ -45,7 +44,6 @@ function transformRequires(
         replace(mod.code)(
           requireFunctionIdentifier.name, // the function that require is in within the code.
           node => {
-            console.log('node', node);
             switch (node.type) {
               case 'CallExpression':
                 // If require is called bare (why would this ever happen? IDK), then return AST
@@ -133,7 +131,6 @@ function transformRequires(
 
         // Prepend some ast that aliases the minified require variable to `require` if require
         // hasn't been replaced inline in the code.
-        console.log('IS IT SYNC?');
         if (
           replaceRequires === 'variable' && requireFunctionIdentifier.name !== 'require' &&
           mod.code && mod.code.body && mod.code.body.body
