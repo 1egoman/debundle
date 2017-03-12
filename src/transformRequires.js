@@ -121,10 +121,10 @@ function transformRequires(
                 }
 
               case 'Identifier':
-                return {
+                return replaceRequires === 'inline' ? {
                   type: 'Identifier',
                   name: 'require',
-                };
+                } : requireFunctionIdentifier;
             };
           }
         );
@@ -135,20 +135,12 @@ function transformRequires(
           replaceRequires === 'variable' && requireFunctionIdentifier.name !== 'require' &&
           mod.code && mod.code.body && mod.code.body.body
         ) {
-          mod.code.body.body.unshift({
-            "type": "VariableDeclaration",
-            "declarations": [
-              {
-                "type": "VariableDeclarator",
-                "id": requireFunctionIdentifier,
-                "init": {
-                  "type": "Identifier",
-                  "name": "require",
-                }
-              }
-            ],
-            "kind": "const",
-          });
+          // At the top of the module closure, set up an alias to the `require` identifier.
+          // ie, `const n = require;`
+          console.log(`* Aliasing ${requireFunctionIdentifier.name} with 'require'...`);
+          mod.code.body.body.unshift(
+            buildVariableAssignment(requireFunctionIdentifier, {type: 'Identifier', name: 'require'})
+          );
         }
       }
 
@@ -157,27 +149,51 @@ function transformRequires(
       // mangled variable.
       let moduleIdentifier = mod.code.params[type === 'webpack' ? 0 : 1];
       if (moduleIdentifier && moduleIdentifier.name !== 'module') {
-        console.log(`* Replacing ${moduleIdentifier.name} with 'module'...`);
-        replace(mod.code)(
-          moduleIdentifier.name, // the function that require is in within the code.
-          node => {
-            node.name = 'module';
-            return node;
-          }
-        )
+        if (replaceRequires === 'inline') {
+          console.log(`* Replacing ${moduleIdentifier.name} with 'module'...`);
+          replace(mod.code)(
+            moduleIdentifier.name, // the function that require is in within the code.
+            node => {
+              node.name = 'module';
+              return node;
+            }
+          );
+        } else if (
+          replaceRequires === 'variable' && 
+          mod.code && mod.code.body && mod.code.body.body
+        ) {
+          // At the top of the module closure, set up an alias to the `module` identifier.
+          // ie, `const t = module;`
+          console.log(`* Aliasing ${moduleIdentifier.name} with 'module'...`);
+          mod.code.body.body.unshift(
+            buildVariableAssignment(moduleIdentifier, {type: 'Identifier', name: 'module'})
+          );
+        }
       }
 
       // Dito to the above for `exports`
       let exportsIdentifier = mod.code.params[type === 'webpack' ? 1 : 2];
       if (exportsIdentifier && exportsIdentifier.name !== 'exports') {
-        console.log(`* Replacing ${exportsIdentifier.name} with 'exports'...`);
-        replace(mod.code)(
-          exportsIdentifier.name, // the function that require is in within the code.
-          node => {
-            node.name = 'exports';
-            return node;
-          }
-        )
+        if (replaceRequires === 'inline') {
+          console.log(`* Replacing ${exportsIdentifier.name} with 'exports'...`);
+          replace(mod.code)(
+            exportsIdentifier.name, // the function that require is in within the code.
+            node => {
+              node.name = 'exports';
+              return node;
+            }
+          );
+        } else if (
+          replaceRequires === 'variable' && 
+          mod.code && mod.code.body && mod.code.body.body
+        ) {
+          // At the top of the module closure, set up an alias to the module identifier.
+          // ie, `const t = module;`
+          console.log(`* Aliasing ${exportsIdentifier.name} with 'exports'...`);
+          mod.code.body.body.unshift(
+            buildVariableAssignment(exportsIdentifier, {type: 'Identifier', name: 'exports'})
+          );
+        }
       }
     } else {
       console.log(`* Module ${mod.id} has no require param, skipping...`);
@@ -185,6 +201,20 @@ function transformRequires(
 
     return mod;
   });
+}
+
+function buildVariableAssignment(variableIdentifier, contentIdentifier) {
+  return {
+    "type": "VariableDeclaration",
+    "declarations": [
+      {
+        "type": "VariableDeclarator",
+        "id": variableIdentifier,
+        "init": contentIdentifier,
+      },
+    ],
+    "kind": "const",
+  };
 }
 
 module.exports = transformRequires;
