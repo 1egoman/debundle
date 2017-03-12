@@ -30,6 +30,24 @@ function generateFunction(...body) {
   };
 }
 
+// Generate a function with the parameter names mangled, as if the bundle was minified.
+function generateMangledFunction(...body) {
+  return {
+    type: 'FunctionDeclaration',
+    defaults: [],
+    id: null,
+    params: [
+      {type: 'Identifier', name: 'mangledModule'}, // module
+      {type: 'Identifier', name: 'mangledExports'}, // exports
+      {type: 'Identifier', name: 'mangledRequire'}, // require
+    ],
+    body: {
+      type: 'BlockStatement',
+      body,
+    },
+  };
+}
+
 function generateRequire(requireContents) {
   return {
     type: 'CallExpression',
@@ -45,9 +63,44 @@ function generateRequire(requireContents) {
   };
 }
 
+function generateMangledRequire(requireContents) {
+  return {
+    type: 'CallExpression',
+    callee: {
+      type: 'Identifier',
+      name: 'mangledRequire',
+    },
+    arguments: [{
+      type: 'Literal',
+      raw: requireContents.toString(),
+      value: requireContents,
+    }],
+  };
+}
+
+function generateVariableAssignment(variableName, contentIdentifier, assignmentType="const") {
+  return {
+    "type": "VariableDeclaration",
+    "declarations": [
+      {
+        "type": "VariableDeclarator",
+        "id": {
+          "type": "Identifier",
+          "name": variableName,
+        },
+        "init": contentIdentifier,
+      },
+    ],
+    "kind": assignmentType,
+  };
+}
+
 
 module.exports = {
   generateFunction,
+  generateMangledFunction,
   generateRequire,
+  generateMangledRequire,
   generateProgram,
+  generateVariableAssignment,
 };
