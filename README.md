@@ -63,8 +63,7 @@ dist/
 
 (To debundle a simple Browserify bundle, replace `webpack` the above configuration with `browserify`)
 
-## Documentation
-See [USING.md](USING.md).
+A configuration can have a number of flags - they are documented in [DOCS.md](DOCS.md).
 
 # Contributing
 - After cloning down the project, run `npm install` - that should be it.

@@ -1,3 +1,8 @@
+# Configuration Documentation
+
+Configuration is stored in a json file with an object at its root. The headings below represent the
+keys in that object:
+
 ### `type` (required)
 A webpack or browserify bundle.
 
