@@ -4,11 +4,11 @@ Configuration is stored in a json file with an object at its root. The headings 
 keys in that object:
 
 ### `type` (required)
-A webpack or browserify bundle.
+A Webpack or Browserify bundle. Either set to `"browserify"` or `"webpack"`.
 
 ### `entryPoint` (required for webpack bundles)
 The entry point module id. If left empty in a Browserify bundle it can often be calculated
-procedurally.
+procedurally. When in doubt, webpack bundles often have their entry point at module `0`.
 
 ### `knownPaths` (required)
 An object mapping module ids to the location on disk to put a given module. For example, `{"1":
@@ -75,7 +75,7 @@ function nestedFunction() {
 ```
 
 - Handles scoping well - the inner scope maintains its value.
-- Is able to be rebundled by *webpack* and can be run in node, but browserify chokes. Because
-browserify is looking for the `require` function call when crawling your app, it isn't able to see
+- Is able to be rebundled by **webpack** and can be run in node, but browserify chokes. Because
+Browserify is looking for the `require` function call when crawling your app, it isn't able to see
 through the variable assignment.
 - Isn't as nice to look at. `¯\_(ツ)_/¯`
