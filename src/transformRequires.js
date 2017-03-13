@@ -46,8 +46,8 @@ function transformRequires(
           node => {
             switch (node.type) {
               case 'CallExpression':
-                // If require is called bare (why would this ever happen? IDK), then return AST
-                // without any arguments.
+                // If require is called bare (why would this ever happen? IDK, it did in a bundle
+                // once), then return AST without any arguments.
                 if (node.arguments.length === 0) {
                   return {
                     type: 'CallExpression',
