@@ -55,13 +55,13 @@ dist/
 ## Simple configuration
 ```
 {
-  "type": "webpack",
+  "type": "browserify",
   "entryPoint": 1,
   "knownPaths": {}
 }
 ```
 
-(To debundle a simple Browserify bundle, replace `webpack` the above configuration with `browserify`)
+(To debundle a simple Webpack bundle, replace `browserify` the above configuration with `webpack`)
 
 A configuration can have a number of flags - they are documented in [DOCS.md](DOCS.md).
 
