@@ -18,7 +18,7 @@ npm i -g debundle
 ```
 
 ## Running
-```
+```bash
 $ debundle
 Usage: debundle [input file] {OPTIONS}
 
@@ -27,13 +27,14 @@ Options:
    --output, -o  Directory to debundle code into.
    --config, -c  Configuration file
 
-$ cat debundle-config.json
+$ curl https://raw.githubusercontent.com/1egoman/debundle/master/test_bundles/browserify/bundle.js > bundle.js
+$ curl https://raw.githubusercontent.com/1egoman/debundle/master/test_bundles/browserify/debundle.config.json > debundle.config.json
+$ cat debundle.config.json
 {
-  "type": "webpack",
-  "entryPoint": 1,
+  "type": "browserify",
   "knownPaths": {}
 }
-$ debundle -i my-bundle.js -o dist/ -c debundle-config.json
+$ debundle -i bundle.js -o dist/ -c debundle.config.json
 $ tree dist/
 dist/
 ├── index.js
