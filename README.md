@@ -66,6 +66,31 @@ dist/
 
 A configuration can have a number of flags - they are documented in [DOCS.md](DOCS.md).
 
+# FAQ
+
+### Is debundling lossless? Ie, if I bundle my code then debundle, will I get the same source that was originally bundled? 
+
+No. There a bunch of metadata that's lost when bundling:
+- Any custom `package.json` settings for each `node_module` and the root package.
+- In a webpack bundle, the names of modules aren't in the bundle. By default, debundling will produce
+files named after the module id (ie, `1.js`) unless [manually overridden](https://github.com/1egoman/debundle/blob/master/DOCS.md#knownpaths-required).
+- If your code was minified, the output files from the debundling process will also be minified (ie,
+no whitespace, single letter variables, etc). It's up to you to run source through other tools to
+make it look nicer.
+
+### My debundled code can't be run!
+
+- Make sure that either when rebundling or running with node that you're using the correct file as
+your entrypoint. 
+- Read through [all the configuration options](https://github.com/1egoman/debundle/blob/master/DOCS.md). Some of them have caveats.
+- You could have run into an edge case that I haven't seen yet. Feel free to open an issue if you believe that to be the case.
+
+### Does this tool support bundles made by tools other than Browserify and Webpack?
+
+Not officially. However, if a bundle shares the same type module layout as Browserify or Webpack it
+may be possible to set the [moduleAst](https://github.com/1egoman/debundle/blob/master/DOCS.md#moduleast)
+configuration option to point to the location of the modules.
+
 # Contributing
 - After cloning down the project, run `npm install` - that should be it.
 - Debundler entry point is `./src/index.js` (that's how you run it!)
