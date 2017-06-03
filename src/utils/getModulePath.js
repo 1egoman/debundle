@@ -2,7 +2,7 @@ const Arboreal = require('arboreal');
 const archy = require('archy');
 const MAX_RECURSION_DEPTH = 100;
 
-function makeModuleTree(modules, moduleId, tree=new Arboreal(), depth=0) {
+function makeModuleTree(modules, moduleId, tree=new Arboreal(), history=[]) {
   let mod = modules.find(m => m.id === moduleId);
   if (!mod) {
     throw new Error(`Module ${mod.id} cannot be found in the module array.`);
@@ -11,8 +11,13 @@ function makeModuleTree(modules, moduleId, tree=new Arboreal(), depth=0) {
   tree.data = mod;
   tree.id = mod.id;
 
-  if (depth > MAX_RECURSION_DEPTH) {
+  if (history.length > MAX_RECURSION_DEPTH) {
     // console.warn('* Hit max recursion depth while making tree, tree may be incomplete...');
+    return
+  }
+
+  if (hasCyclicalDependency(history)) {
+    console.warn(`* Hit a cyclical dependency, tree may be incomplete...`)
     return
   }
 
@@ -23,11 +28,26 @@ function makeModuleTree(modules, moduleId, tree=new Arboreal(), depth=0) {
       modules,
       mod.lookup[key],
       tree.children[tree.children.length - 1],
-      ++depth
+      [mod.id, ...history]
     );
   }
 
   return tree;
+}
+
+// Given an array of module ids, determine if there are any duplicates. If so, this would indicate a
+// cyclical dependency and that's no good.
+// ie, hasCyclicalDependency([1, 2, 3]) => false
+// ie, hasCyclicalDependency([1, 2, 3, 2, 3]) => true
+function hasCyclicalDependency(moduleList) {
+  const uniqueModules = moduleList.reduce((acc, i) => {
+    if (acc.indexOf(i) === -1) {
+      acc.push(i)
+    }
+    return acc;
+  }, []);
+
+  return uniqueModules.length !== moduleList.length;
 }
 
 // Print a module tree. Properly handles circular references too!
