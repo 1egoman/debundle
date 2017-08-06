@@ -8,8 +8,8 @@ TEST_BUNDLE_CONFIG="$1/debundle.config.json"
 rm -rf $TEST_BUNDLE_OUTPUT
 
 # Debundle the bundle
-echo ./src/index.js -i $TEST_BUNDLE_FILE -o $TEST_BUNDLE_OUTPUT -c $TEST_BUNDLE_CONFIG
-./src/index.js -i $TEST_BUNDLE_FILE -o $TEST_BUNDLE_OUTPUT -c $TEST_BUNDLE_CONFIG
+echo ./src/cmdline.js -i $TEST_BUNDLE_FILE -o $TEST_BUNDLE_OUTPUT -c $TEST_BUNDLE_CONFIG
+./src/cmdline.js -i $TEST_BUNDLE_FILE -o $TEST_BUNDLE_OUTPUT -c $TEST_BUNDLE_CONFIG
 
 exit $?
 
