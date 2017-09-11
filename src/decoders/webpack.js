@@ -24,7 +24,7 @@ function webpackDecoder(moduleArrayAST, knownPaths) {
       id,
       code: moduleDescriptor,
     };
-  });
+  }).filter(i => i.code);
 }
 
 function getModuleFileName(node, knownPaths) {
