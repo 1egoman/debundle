@@ -37,7 +37,7 @@
     "nyc": "^10.1.2"
   },
   "bin": {
-    "debundle": "src/index.js"
+    "debundle": "src/cmdline.js"
   },
   "engines": {
     "node": ">=6"
