@@ -1,27 +1,5 @@
 @1egoman
 
-In order to troubleshoot, I need:
+Read through this in the readme before posting an issue: https://github.com/1egoman/debundle#dragon-here-be-dragons-dragon
 
-A bundle that doesn't work, preferably as minimal as possible. Upload it to pastebin.com:
-
-Link: 
-
-Any commands you ran prior to debundling:
-
-```
-# commands here
-```
-
-Your configuration that you passed with the `-c` argument when debundling.
-
-```
-# put the contents of your debundle.config.json here
-```
-
-The **EXACT** command you ran to debundle.
-
-`debundle -i ... -o ... -c ...`
-
-Tell me what the issue is:
-
-If you omit any of these parts, I can't help you!
+So, with that context, what's your problem?
