@@ -2,10 +2,16 @@
 
 # debundle
 
-This is a tool to decode javascript bundles produced by tools like [Webpack](https://webpack.github.io/) and [Browserify](http://browserify.org/)
-into their original, pre-bundled source.
+This is a tool built to unpack javascript bundles prudiced by webpack and browserify.
 
 [![Build Status](https://travis-ci.org/1egoman/debundle.svg?branch=master)](https://travis-ci.org/1egoman/debundler)
+
+---
+
+## :dragon: HERE BE DRAGONS! :dragon:
+This was a research project I built to help me understand how javascript bundles are strutured. It works in a labratory environment most of the, but often fails on real-world bundles. It's been a while since I worked on this project so if you run into issues, I might not really be able to help you all that much.
+
+---
 
 ## Why would I want to debundle my code?
 Reasons vary, but this tool was originally developed to help me with a reverse engineering project.
