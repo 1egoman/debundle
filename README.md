@@ -9,7 +9,7 @@ This is a tool built to unpack javascript bundles prudiced by webpack and browse
 ---
 
 ## :dragon: HERE BE DRAGONS! :dragon:
-This was a research project I built to help me understand how javascript bundles are strutured. It works in a labratory environment most of the, but often fails on real-world bundles. It's been a while since I worked on this project so if you run into issues, I might not really be able to help you all that much.
+This was a research project I built to help me understand how javascript bundles are strutured. It works in a labratory environment most of the time, but often fails on real-world javascript bundles. It's been a while since I worked on this project so if you run into issues, I might not really be able to help you out all that much.
 
 ---
 
