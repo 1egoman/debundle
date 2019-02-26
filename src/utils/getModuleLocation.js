@@ -37,7 +37,12 @@ function getModuleLocation(
   } else {
     // Final fallback - the name of the file is the module id.
     console.warn(`* No lookup tabie for module ${mod.id}, so using identifier as require path...`);
-    modulePaths = [[{id: mod.id, path: `./${mod.id}`}]];
+    let path = './';
+    if (mod.id.match(/.*\.js$/))
+        path += mod.id.slice(0, -3);
+    else
+        path += mod.id;
+    modulePaths = [[{id: mod.id, path}]];
   }
 
   /* ['./foo'] => './foo'
