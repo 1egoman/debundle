@@ -74,7 +74,7 @@ function getModuleLocation(
   if (requirePath && requirePath.length > 0) {
     modulePath = path.join(...requirePath);
   } else if (!rootNodeModule) {
-    modulePath = 'index';
+    modulePath = 'module'+mod.id; // name the file based on id to avoid conflict
   } else {
     // If a root node module, then leave it empty. The root node module's index is implied.
     // Ie, you don't need to do `foo/index`, you can just do `foo`.
