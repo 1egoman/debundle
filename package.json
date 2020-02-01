@@ -9,9 +9,12 @@
   "private": false,
   "dependencies": {
     "acorn": "^7.1.0",
+    "chalk": "^3.0.0",
+    "cli-highlight": "^2.1.4",
     "escodegen": "^1.13.0",
     "escope": "^3.6.0",
     "estraverse": "^4.3.0",
-    "recast": "^0.18.5"
+    "recast": "^0.18.5",
+    "sync-request": "^6.1.0"
   }
 }

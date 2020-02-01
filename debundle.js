@@ -6,10 +6,25 @@ const escope = require('escope');
 const estraverse = require('estraverse');
 const escodegen = require('escodegen');
 
+const request = require('sync-request');
+
+const chalk = require('chalk');
+const cliHighlight = require('cli-highlight').highlight;
+const highlight = (code) => cliHighlight(code, {language: 'javascript', ignoreIllegals: true});
+
+const METADATA_FILE_TEMPLATE = `// This auto-generated file defines some options used when "<PATH>" is debundled.
+module.exports = () => (<JSON>)\n`;
+
 function parseBundleModules(node) {
   if (node.type === 'ObjectExpression') {
     // Object
-    return node.properties.map(property => [property.key.value, property.value])
+    return node.properties.map(property => {
+      const key = typeof property.key.value !== 'undefined' ? property.key.value : property.key.name;
+      return [
+        key,
+        property.value,
+      ];
+    })
   } else if (node.type === 'ArrayExpression') {
     // Array
     return node.elements.map((moduleAst, moduleId) => [moduleId, moduleAst])
@@ -24,6 +39,8 @@ class WebpackBootstrapModuleCallExpressionNotFoundError extends Error {}
 class WebpackBootstrap {
   constructor(ast, moduleCallExpression) {
     this.ast = ast;
+    this.scopeManager = escope.analyze(this.ast);
+
     this._moduleCallExpression = moduleCallExpression;
 
     this.publicPath = this._getRequireFunctionProperty('p').value;
@@ -39,10 +56,9 @@ class WebpackBootstrap {
     }
   }
 
-  _getRequireFunctionProperty(propertyName) {
+  _getRequireFunctionProperty = (propertyName) => {
     const requireFunctionName = this._requireFunction.id.name;
 
-    this.scopeManager = escope.analyze(this.ast);
     const requireFunction = this.scopeManager.scopes[0].set.get(requireFunctionName);
 
     // Looking for an instance of soemthing like:
@@ -65,7 +81,41 @@ class WebpackBootstrap {
   }
 
   get entrypointModuleId() {
-    return this._getRequireFunctionProperty('s').value;
+    // Most of the time, this is available within `require.s`. Check there first.
+    const s = this._getRequireFunctionProperty('s');
+    if (s && s.type === 'Literal') {
+      return s.value;
+    }
+
+    // As a secondary step, try to look for an instance of something like this:
+    // > require(require.foo = 906)
+
+    const requireFunctionName = this._requireFunction.id.name;
+
+    const requireFunction = this.scopeManager.scopes[0].set.get(requireFunctionName);
+
+    const requireFunctionPropertyAssignment = requireFunction.references.find(reference => {
+      const node = reference.identifier._parent._parent;
+      return (
+        node.type === 'AssignmentExpression' &&
+        node.left.type === 'MemberExpression' &&
+        node.left.object.name === requireFunctionName &&
+        node._parent.type === 'CallExpression' &&
+        node._parent.callee.name === requireFunctionName
+      );
+    })
+
+    if (!requireFunctionPropertyAssignment) {
+      return null;
+    }
+
+    const assignedValueAst = requireFunctionPropertyAssignment.identifier._parent._parent.right;
+
+    if (assignedValueAst && assignedValueAst.type === 'Literal') {
+      return assignedValueAst.value;
+    } else {
+      return null;
+    }
   }
 
   // Returns an array that looks like ['module', 'exports', 'require'], which indicates
@@ -97,18 +147,60 @@ class WebpackBootstrap {
 
 const DEFAULT_CHUNK = 'default';
 
+const DEFAULT_OPTIONS = {
+  distPath: './dist',
+  chunkFileNameSuffix: '.bundle.js',
+  publicPathPrefix: '',
+  chunkHttpRequestOptions: {},
+  chunkNameMapping: {},
+};
+
 class Bundle {
   constructor(p) {
     this.path = p;
+    if (!path.isAbsolute(this.path)) {
+      // Convert `this.path` to be absolute if it is not.
+      const cwd = path.resolve();
+      this.path = path.join(cwd, this.path);
+    }
+
     this.metadataFilePath = path.join(path.dirname(this.path), path.basename(this.path)+'.info');
 
-    this.distPath = './dist';
-    this.chunks = {};
-    this.parse();
+    this.chunks = new Map();
+    this.logIndentLevel = 0;
+
+    this._options = DEFAULT_OPTIONS;
+    // Add a getter / setter on the main bundle object for these options.
+    for (const key in DEFAULT_OPTIONS) {
+      Object.defineProperty(this, key, {
+        get: () => this._options[key],
+        set: value => {
+          this._options = { ...this._options, [key]: value };
+          this.writeMetadataFile();
+        },
+      });
+    }
+
+    this.readMetadataFile();
+  }
+
+  logIndent() { this.logIndentLevel += 1; }
+  logDedent() { this.logIndentLevel -= 1; }
+  log = (...args) => {
+    let indent = '';
+    for (let i = 0; i < this.logIndentLevel; i += 1) {
+      indent += '  ';
+    }
+    console.log(`[LOG]${indent}`, ...args);
+  }
+
+  get [Symbol.toStringTag]() {
+    return `bundle ${this.path}: ${this.chunks.size} chunks, ${Object.keys(this.modules).length} modules`;
   }
 
   parse() {
-    const bundleContents = fs.readFileSync(this.path);
+    const bundleContents = fs.readFileSync(this.path).toString();
+    this.log(`Read bundle ${this.path} (${bundleContents.length} bytes)`)
 
     this.ast = acorn.parse(bundleContents, {});
 
@@ -127,37 +219,59 @@ class Bundle {
     // Should return a list of `FunctionExpression` ast nodes.
     const webpackBootstrapParent = this.webpackBootstrap.ast._parent;
     const bundleModules = parseBundleModules(webpackBootstrapParent.arguments[0]);
+    this.log(`Found ${Object.keys(bundleModules).length} modules in main bundle`);
     this.addChunk(DEFAULT_CHUNK, bundleModules);
 
     this.moduleTree = this._calculateModuleTree();
 
     this.writeMetadataFile();
+
+    return this;
   }
 
   get modules() {
     return Object.fromEntries(
-      Object.values(this.chunks)
-        .flatMap(chunk => Object.entries(chunk.modules))
+      Array.from(this.chunks)
+        .flatMap(([id, chunk]) => Object.entries(chunk.modules))
     );
   }
 
   // Given anything that could be specified in a `require` call, return the module
   getModule = (moduleId) => {
-    if (typeof moduleId === 'number') {
-      return this.modules[moduleId];
+    const m = this.modules[moduleId];
+    if (m) {
+      return m;
     } else {
-      throw new Error('Need to implement looking up modules by path');
+      return null;
+      // throw new Error('Need to implement looking up modules by path');
     }
   }
 
   getChunk = (chunkId) => {
-    return this.chunks[chunkId];
+    const chunkById = this.chunks.get(chunkId);
+    if (chunkById) {
+      return chunkById;
+    }
+
+    for (const [chunkId, chunk] of this.chunks) {
+      if (chunk.fileName === chunkId) {
+        return chunk;
+      }
+
+      // "main.xyx.js" => "main"
+      const name = path.basename(this.fileName, path.extname(this.fileName)).split('.')[0];
+      if (name === chunkId) {
+        return chunk;
+      }
+    }
+
+    return null;
   }
   get defaultChunk() { return this.getChunk(DEFAULT_CHUNK); }
-  addChunk = (chunkId, bundleModules=null) => {
-    const chunk = new Chunk(this, chunkId, bundleModules);
+  addChunk = (fileName, bundleModules=null) => {
+    const chunk = new Chunk(this, fileName, bundleModules);
     chunk.ids.forEach(id => {
-      this.chunks[id] = chunk;
+      this.chunks.set(id, chunk);
     });
     return chunk;
   }
@@ -173,9 +287,11 @@ class Bundle {
     if (this.webpackBootstrap) {
       return this.webpackBootstrap;
     }
+    const log = this.log;
 
     let webpackBootstrap, webpackBoostrapModuleCallNode;
 
+    log(`Looking for webpackBootstrap in bundle...`);
     estraverse.traverse(this.ast.body, {
       fallback: 'iteration',
       enter: function(node, parent) {
@@ -217,7 +333,9 @@ class Bundle {
         );
 
         if (isWebpackBootstrap) {
+          log(`Found webpackBootstrap!`);
           webpackBootstrap = node;
+          log(`webpackBootstrap module call expression: ${highlight(escodegen.generate(requireFunction))}`);
           webpackBoostrapModuleCallNode = requireFunction;
           this.break();
         } 
@@ -264,11 +382,11 @@ class Bundle {
 
     // Loop through each element in the object, populating all the children and parents.
     Object.values(tree).forEach(item => {
-      item.children = item._dependencyIds.flatMap(id => {
-        if (!tree[id]) {
-          tree[id] = { parents: [], children: [], bare: true };
+      item.children = item._dependencyIds.filter(a => a.moduleId !== null).flatMap(({moduleId}) => {
+        if (!tree[moduleId]) {
+          tree[moduleId] = { parents: [], children: [], bare: true };
         }
-        const m = tree[id];
+        const m = tree[moduleId];
         m.parents.push(item);
         return [m];
       });
@@ -281,32 +399,95 @@ class Bundle {
   serialize() {
     return {
       version: 1,
-      entrypointModuleId: this.entrypointModule.id,
-      modules: Object.fromEntries(
-        Object.values(this.modules).map(m => [m.id, m.serialize()])
+
+      // Only include options that were changed from the default
+      options: Object.fromEntries(
+        Object.entries(this._options)
+          .filter(([key, value]) => DEFAULT_OPTIONS[key] !== value)
       ),
     };
   }
 
-  writeMetadataFile() {
-    const contents = this.serialize();
-    fs.writeFileSync(this.metadataFilePath, JSON.stringify(contents, null, 2));
+  writeMetadataFile(opts={force: false}) {
+    const shouldWrite = !this._metadataFileExistedAtStartOfProgram || opts.force;
+
+    if (shouldWrite) {
+      const contents = this.serialize();
+      fs.writeFileSync(
+        this.metadataFilePath,
+        METADATA_FILE_TEMPLATE
+          .replace('<JSON>', JSON.stringify(contents, null, 2))
+          .replace('<PATH>', this.path),
+      );
+    }
+  }
+
+  readMetadataFile() {
+    let metadataClosure;
+    this._metadataFileExistedAtStartOfProgram = false;
+    try {
+      metadataClosure = require(this.metadataFilePath);
+    } catch (e) {
+      return;
+    }
+    this._metadataFileExistedAtStartOfProgram = true;
+
+
+    if (typeof metadataClosure !== 'function') {
+      throw new Error(`Malformed metadata file - module.exports is expected to be a function, not ${typeof metadataClosure}!`);
+    }
+
+    const data = metadataClosure();
+    if (typeof data !== 'object') {
+      throw new Error('Malformed metadata file - closure is expected to return an object!');
+    }
+
+    const {version, options} = data;
+
+    if (version !== 1) {
+      throw new Error(`Malformed metadata file - metadata file is version ${version}, but this program only knows how to read version 1`);
+    }
+
+    // Load all options as fields on the bundle
+    for (const key in options) {
+      this._options[key] = options[key] || this._options[key];
+    }
   }
 }
 
 
 class Chunk {
-  constructor(bundle, chunkId, bundleModules) {
-    this._constructorChunkId = chunkId;
+  constructor(bundle, fileName, bundleModules=null) {
     this.bundle = bundle;
+
+    this.fileName = fileName;
 
     if (bundleModules) {
       // If bundleModules was already defined, assume that this chunk represents the main bundle.
       this.ids = [DEFAULT_CHUNK];
       this.ast = null;
+      this.fileName = 'default.bundle.js';
     } else {
       // No modules were specified. We'll need to locate the bundle chunk seperately on our own.
-      const chunkContents = fs.readFileSync(this.filePath);
+      this.bundle.log(`Locating chunk ${fileName}...`);
+      this.bundle.log(`=> first, try reading from filesystem: ${this.filePath}`);
+      let chunkContents;
+      try {
+        chunkContents = fs.readFileSync(this.filePath);
+      } catch (err) {
+        this.bundle.log(`   reading from filesystem failed: ${err}`);
+
+        this.bundle.log(`=> second, try reading from server: ${this.url}`);
+        const response = request('GET', this.url, this.bundle.chunkHttpRequestOptions);
+        if (response.statusCode >= 400) {
+          this.bundle.log(`   reading from server failed: ${response.statusCode} ${response.body}`);
+          throw new Error(
+            `Cannot locate chunk ${this.fileName} - tried both locally (${this.filePath}) and on the web (${this.url})`
+          );
+        }
+        chunkContents = response.body;
+      }
+      this.bundle.log(`      read successfully!`);
       this.ast = acorn.parse(chunkContents, {});
 
       // Add `_parent` property to every node, so that the parent can be
@@ -333,11 +514,13 @@ class Chunk {
           if (!chunkIdArray) {
             return;
           }
+
+          const parentElements = parent && parent.type === 'CallExpression' ? parent.arguments : parent.elements;
           const moduleListAst = (
-            parent &&
-            parent.arguments &&
-            parent.arguments.length === 2 &&
-            parent.arguments[1]
+            parentElements &&
+            parentElements.length >= 2 &&
+            (parentElements[1].type.startsWith('Array') || parentElements[1].type.startsWith('Object')) &&
+            parentElements[1]
           );
 
           if (!moduleListAst) {
@@ -350,7 +533,11 @@ class Chunk {
         },
       });
 
-      this.ids = chunkIds;
+      if (!moduleList) {
+        throw new Error(`Could not generate module list for ${this.fileName}`);
+      }
+
+      this.ids = chunkIds
       bundleModules = parseBundleModules(moduleList);
     }
 
@@ -370,12 +557,18 @@ class Chunk {
     );
   }
 
+  get [Symbol.toStringTag]() {
+    return `chunk ${this.fileName}: ${Object.keys(this.modules).length} modules`;
+  }
+
   get url() {
-    return this.bundle.webpackBootstrap.publicPath + this._constructorChunkId + '.bundle.js';
+    let origin = this.bundle.publicPathPrefix;
+    if (origin.length > 0 && !origin.endsWith('/')) { origin += '/' }
+    return origin + this.bundle.webpackBootstrap.publicPath + this.fileName;
   }
 
   get filePath() {
-    return path.join(path.dirname(this.bundle.path), this._constructorChunkId + '.bundle.js');
+    return path.join(path.dirname(this.bundle.path), this.fileName);
   }
 }
 
@@ -395,7 +588,7 @@ class Module {
     this.id = moduleId;
     this.ast = ast;
 
-    this.path = `${chunk._constructorChunkId}-${this.id}.js`;
+    this.path = `${chunk.ids.join('-')}-${this.id}.js`;
 
     this.scopeManager = escope.analyze(this.ast);
 
@@ -403,58 +596,100 @@ class Module {
     // required
     this._dependencyModuleIds = this._findAllRequireFunctionCalls();
 
+    const dependencyModuleIdsRaw = this._dependencyModuleIds.filter(i => i.moduleId).map(i => i.moduleId);
+    this.bundle.log([
+      `Discovered module ${moduleId} `,
+      `(chunk ${highlight(JSON.stringify(chunk.ids))}`,
+      `${
+        (dependencyModuleIdsRaw.length > 0 ? ', depends on ' : '') +
+        dependencyModuleIdsRaw.slice(0, 3).map(i => chalk.green(i)).join(', ') +
+        (dependencyModuleIdsRaw.length > 3 ? `, and ${dependencyModuleIdsRaw.length-3} more` : '')
+      })`,
+    ].join(''));
+    this.bundle.logIndent();
+
     // If any modules were found to be in additional chunks that were not previously known about,
     // add them.
     this._dependencyModuleIds
-      .filter(({chunkId, moduleId}) => !(
-        chunkId === DEFAULT_CHUNK || this.bundle.getChunk(chunkId)
+      .filter(i => i.type === 'REQUIRE_ENSURE')
+      .filter(({chunkId}) => !(
+        chunkId === DEFAULT_CHUNK ||
+        this.chunk.ids.includes(chunkId) ||
+        this.bundle.getChunk(chunkId)
       ))
       .forEach(({chunkId, moduleId}) => {
-        this.bundle.addChunk(chunkId);
+        this.bundle.log(
+          `Module ${this.id} depends on chunk ${chunkId}, parsing new chunk...`
+        );
+
+        const chunkFileName = this.bundle.chunkNameMapping[chunkId] || `${chunkId}${this.bundle.chunkFileNameSuffix}`;
+        this.bundle.addChunk(chunkFileName);
       });
+
+    this.bundle.logDedent();
   }
 
   get absolutePath() {
     return path.join(this.bundle.distPath, this.path);
   }
 
-  // Get a reference to the require function scope in the module closure
-  get requireFunctionVariable() {
-    const requireFunctionIndex = this.bundle.moduleClosureParamIndexes.indexOf('require');
-    const requireFunction = this.ast.params[requireFunctionIndex];
-    if (!requireFunction) { return null; }
+  // Get a reference to require, module, or exports defined in the module closure
+  _getModuleClosureVariable(varname) {
+    const index = this.bundle.moduleClosureParamIndexes.indexOf(varname);
+    const node = this.ast.params[index];
+    if (!node) { return null; }
 
-    return this.scopeManager.scopes[0].variables.find(v => v.name === requireFunction.name);
+    return this.scopeManager.scopes[0].variables.find(v => v.name === node.name);
   }
+  get requireVariable() { return this._getModuleClosureVariable('require'); }
+  get moduleVariable() { return this._getModuleClosureVariable('module'); }
+  get exportsVariable() { return this._getModuleClosureVariable('exports'); }
+
 
   get dependencies() {
-    return this._dependencyModuleIds.map(({chunkId, moduleId}) => (
-      this.bundle.getChunk(chunkId).getModule(moduleId)
-    ));
+    return new Map(this._dependencyModuleIds.filter(a => a.moduleId !== null).map(({moduleId}) => (
+      [moduleId, this.bundle.getModule(moduleId)]
+    )));
   }
 
-  get code() {
+  code(opts={renameVariables: true}) {
     const originalAst = acorn.parse('var a = '+escodegen.generate(this.ast), {}).body[0].declarations[0].init;
 
-    if (this.requireFunctionVariable) {
-      // Adjust all require calls to contain the path to the module that is desired
-      this._findAllRequireFunctionCalls().forEach(call => {
-        if (!this.bundle.modules[call.moduleId]) {
-          return;
-        }
+    if (opts.renameVariables) {
+      if (this.requireVariable) {
+        // Adjust all require calls to contain the path to the module that is desired
+        this._findAllRequireFunctionCalls().forEach(call => {
+          if (!this.bundle.modules[call.moduleId]) {
+            return;
+          }
 
-        const requiredModulePath = this.bundle.modules[call.moduleId].absolutePath;
+          const requiredModulePath = this.bundle.modules[call.moduleId].absolutePath;
 
-        // Determine the require path that must be used to access the module requested from
-        // the current module.
-        call.ast.value = path.relative(
-          path.dirname(this.absolutePath),
-          requiredModulePath
-        )
-      });
+          // Determine the require path that must be used to access the module requested from
+          // the current module.
+          call.ast.value = path.relative(
+            path.dirname(this.absolutePath),
+            requiredModulePath
+          )
+        });
 
-      // Rename __webpack_require__ (or minified name) to require
-      this.renameVariable(this.requireFunctionVariable, 'require');
+        // Rename __webpack_require__ (or minified name) to require
+        this.renameVariable(this.requireVariable, 'require');
+      }
+
+      const moduleVariable = this.moduleVariable;
+      if (moduleVariable) {
+        // Rename the module closure variable to module (the bundle may be minified and this may not be
+        // the case already)
+        this.renameVariable(moduleVariable, 'module');
+      }
+
+      const exportsVariable = this.exportsVariable;
+      if (exportsVariable) {
+        // Rename the exports closure variable to module (the bundle may be minified and this may not
+        // be the case already)
+        this.renameVariable(this.exportsVariable, 'exports');
+      }
     }
 
     const newAst = this.ast;
@@ -486,7 +721,7 @@ class Module {
   // Returns an array of objects of {type, chunkId, moduleId, ast}, retreived by parting the AST and
   // determining all the times that the `require` or `require.ensure` functions were invoked.
   _findAllRequireFunctionCalls() {
-    const requireFunctionVariable = this.requireFunctionVariable;
+    const requireFunctionVariable = this.requireVariable;
 
     // If no require function is defined in the module, then it cannot have any dependencies
     if (!requireFunctionVariable) {
@@ -513,39 +748,62 @@ class Module {
 
         return {
           type: 'REQUIRE_FUNCTION',
-          chunkId: this.chunk._constructorChunkId,
+          chunkId: null,
           moduleId: requireArguments[0].value,
           ast: requireArguments[0],
         };
       }
 
-      // __webpack_require__.e(0).then(__webpack_require__.bind(null, 4))
+      // __webpack_require__.e(0)
       const isRequireEnsureCall = (
-        // Assert Module ID is in the right location
-        requireCallExpression.type === 'MemberExpression' &&
-        requireCallExpression.property.name === 'bind' &&
-        requireCallExpression.property.name === 'bind' &&
         requireCallExpression._parent.type === 'CallExpression' &&
-        requireCallExpression._parent.arguments.length === 2 &&
-        requireCallExpression._parent.arguments[1].type === 'Literal' &&
-
-        // Assert Chunk ID is in the right location
-        requireCallExpression._parent._parent.callee.property.name === 'then' &&
-        requireCallExpression._parent._parent._parent.object.type === 'CallExpression' &&
-        requireCallExpression._parent._parent._parent.object.callee.object.type === 'CallExpression' &&
-        requireCallExpression._parent._parent._parent.object.callee.object.callee.property.name === 'e' &&
-        requireCallExpression._parent._parent._parent.object.callee.object.arguments.length > 0 &&
-        requireCallExpression._parent._parent._parent.object.callee.object.arguments[0].type === 'Literal'
+        requireCallExpression._parent.callee.type === 'MemberExpression' &&
+        requireCallExpression._parent.callee.object.type === 'Identifier' &&
+        requireCallExpression._parent.callee.object.name === reference.identifier.name &&
+        requireCallExpression._parent.callee.property.name === 'e' &&
+        requireCallExpression._parent.arguments &&
+        requireCallExpression._parent.arguments[0].type === 'Literal'
       );
+        // // Assert Module ID is in the right location
+        // .then(__webpack_require__.bind(null, 4))
+        // requireCallExpression.type === 'MemberExpression' &&
+        // requireCallExpression.property.name === 'bind' &&
+        // requireCallExpression.property.name === 'bind' &&
+        // requireCallExpression._parent.type === 'CallExpression' &&
+        // requireCallExpression._parent.arguments.length === 2 &&
+        // requireCallExpression._parent.arguments[1].type === 'Literal' &&
 
       if (isRequireEnsureCall) {
-        const chunkId = requireCallExpression._parent._parent._parent.object.callee.object.arguments[0].value;
-        const moduleId = requireCallExpression._parent.arguments[1].value;
+        const chunkId = requireCallExpression._parent.arguments[0].value;
         return {
           type: 'REQUIRE_ENSURE',
           chunkId,
+          moduleId: null,
+          ast: requireCallExpression._parent,
+        };
+      }
+
+      // __webpack_require__.t.bind(null, 0)
+      const isRequireTCall = (
+        requireCallExpression._parent._parent.type === 'CallExpression' &&
+        requireCallExpression._parent._parent.callee.type === 'MemberExpression' &&
+        requireCallExpression._parent._parent.callee.property.name === 'bind' &&
+        requireCallExpression._parent._parent.callee.object.type === 'MemberExpression' &&
+        requireCallExpression._parent._parent.callee.object.object.type === 'Identifier' &&
+        requireCallExpression._parent._parent.callee.object.object.name === reference.identifier.name &&
+        requireCallExpression._parent._parent.callee.object.property.type === 'Identifier' &&
+        requireCallExpression._parent._parent.callee.object.property.name === 't' &&
+        requireCallExpression._parent._parent.arguments &&
+        requireCallExpression._parent._parent.arguments[1].type === 'Literal'
+      );
+
+      if (isRequireTCall) {
+        const moduleId = requireCallExpression._parent._parent.arguments[1].value;
+        return {
+          type: 'REQUIRE_T',
+          chunkId: null,
           moduleId,
-          ast: requireCallExpression._parent.arguments[1],
+          ast: requireCallExpression._parent._parent._parent,
         };
       }
 
@@ -559,7 +817,7 @@ class Module {
 
   resolve(p) {
     if (!this.path) {
-      throw new Error('In order to use bundle.resolve, please first define bundle.path.');
+      throw new Error('In order to use module.resolve, please first define module.path.');
     }
 
     function addExtension(p) {
@@ -589,9 +847,26 @@ class Module {
   }
 }
 
+// const bundle = new Bundle('./bandersnatch.js');
+// bundle.parse();
 // const bundle = new Bundle('test_bundles/webpack/bundle.js');
-// const bundle = new Bundle('./spotify.js');
-const bundle = new Bundle('./test_bundles/webpack-bundle-splitting/bundle.js');
+const bundle = new Bundle('./spotify.js');
+// bundle.chunkNameMapping = {
+//   0: "vendors~webplayer-routes.17965baf.js",
+//   2: "webplayer-cef-routes.547ab6e9.js",
+//   3: "webplayer-routes.65d7ec93.js",
+// };
+bundle.parse();
+// bundle.addChunk('vendors~webplayer-routes.17965baf.js');
+
+// const bundle = new Bundle('./test_bundles/density-dashboard/index.js');
+// bundle.addChunk('./main.3834838d.chunk.js');
+// bundle.addChunk('./2.7a878cfb.chunk.js');
+
+// console.log(bundle.getModule(12).dependencies)
+// console.log(bundle.getModule(256).dependencies)
+
+// const bundle = new Bundle('./test_bundles/webpack-bundle-splitting/bundle.js');
 // bundle.getModule(0).path = 'node_modules/uuid/index.js';
 // bundle.getModule(5).path = 'node_modules/uuid/v1.js';
 // bundle.getModule(6).path = 'node_modules/uuid/v4.js';
@@ -601,9 +876,17 @@ const bundle = new Bundle('./test_bundles/webpack-bundle-splitting/bundle.js');
 
 // console.log(bundle.getModule(8).resolve('uuid'))
 
-Object.values(bundle.modules).forEach(m => {
-  console.log('---')
-  console.log(m.id, '=>', m.path)
-  console.log('---')
-  console.log(m.code)
-});
+// Object.values(bundle.modules).slice(0, 10).forEach(m => {
+//   console.log('---')
+//   console.log(m.id, '=>', m.path)
+//   console.log('---')
+//   console.log(m.code)
+// });
+
+// console.log(bundle.getModule('L7z0')._dependencyModuleIds)
+
+// const main = bundle.chunks.get(2).modules[10];
+// for (const [key, value] of bundle.getModule('L7z0').dependencies) {
+//   console.log('MODULE ID', key, !!value);
+// }
+// console.log(bundle.getModule(906).code())
