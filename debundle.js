@@ -15,7 +15,33 @@ const highlight = (code) => cliHighlight(code, {language: 'javascript', ignoreIl
 const METADATA_FILE_TEMPLATE = `// This auto-generated file defines some options used when "<PATH>" is debundled.
 module.exports = () => (<JSON>)\n`;
 
-function parseBundleModules(node) {
+class ExtendedError extends Error {
+  constructor(name, message, ...args /*, context */) {
+    let context = {};
+    if (typeof args[args.length-1] !== 'string') {
+      context = args.pop();
+    }
+    let description = args.join('\n');
+    super([
+      message,
+      ...(description ? [`\nDetails: ${description}`] : []),
+      `\nContext: ${JSON.stringify(context)}`,
+    ].join('\n'));
+    this.name = name;
+    this.context = context;
+  }
+}
+
+function parseBundleModules(node, bundle, isChunk=false) {
+    throw new ExtendedError('BundleModuleParsingError',
+      'Cannot locate modules within bundle - it is not an array or an object!',
+      'The module bootstrapping function was found and parsed, but no array or object',
+      'containing module closures was found. This probably means that the module being parsed',
+      'is something a bit unusual, and in order to unpack this bundle, a manual path to the',
+      'module array must be specified by adding a "moduleClosurePath" key to the "options" object',
+      `in the ${bundle.metadataFilePath} file that was created. For more information, see [INSERT LINK HERE].`,
+      {foo: true}
+    );
   if (node.type === 'ObjectExpression') {
     // Object
     return node.properties.map(property => {
@@ -29,7 +55,15 @@ function parseBundleModules(node) {
     // Array
     return node.elements.map((moduleAst, moduleId) => [moduleId, moduleAst])
   } else {
-    throw new Error('Cannot locate modules within bundle - it is not an array or an object!');
+    throw new ExtendedError('BundleModuleParsingError',
+      'Cannot locate modules within bundle - it is not an array or an object!',
+      'The module bootstrapping function was found and parsed, but no array or object',
+      'containing module closures was found. This probably means that the module being parsed',
+      'is something a bit unusual, and in order to unpack this bundle, a manual path to the',
+      'module array must be specified by adding a "moduleClosurePath" key to the "options" object',
+      `in the ${bundle.metadataFilePath} file that was created. For more information, see [INSERT LINK HERE].`,
+      {foo: true}
+    );
   }
 }
 
@@ -218,7 +252,7 @@ class Bundle {
     // Get a path to the location within the bundle where the module list occurs.
     // Should return a list of `FunctionExpression` ast nodes.
     const webpackBootstrapParent = this.webpackBootstrap.ast._parent;
-    const bundleModules = parseBundleModules(webpackBootstrapParent.arguments[0]);
+    const bundleModules = parseBundleModules(webpackBootstrapParent.arguments[0], this);
     this.log(`Found ${Object.keys(bundleModules).length} modules in main bundle`);
     this.addChunk(DEFAULT_CHUNK, bundleModules);
 
@@ -396,7 +430,7 @@ class Bundle {
     return Object.values(tree);
   }
 
-  serialize() {
+  serialize = () => {
     return {
       version: 1,
 
@@ -404,6 +438,12 @@ class Bundle {
       options: Object.fromEntries(
         Object.entries(this._options)
           .filter(([key, value]) => DEFAULT_OPTIONS[key] !== value)
+      ),
+
+      modules: (
+        Object.values(this.modules)
+          .map(m => m.serialize())
+          .filter(m => m !== null)
       ),
     };
   }
@@ -538,7 +578,7 @@ class Chunk {
       }
 
       this.ids = chunkIds
-      bundleModules = parseBundleModules(moduleList);
+      bundleModules = parseBundleModules(moduleList, this.bundle, true);
     }
 
     this.modules = Object.fromEntries(
@@ -714,6 +754,7 @@ class Module {
 
   serialize() {
     return {
+      id: this.id,
       path: this.path,
     };
   }
@@ -851,11 +892,11 @@ class Module {
 // bundle.parse();
 // const bundle = new Bundle('test_bundles/webpack/bundle.js');
 const bundle = new Bundle('./spotify.js');
-// bundle.chunkNameMapping = {
-//   0: "vendors~webplayer-routes.17965baf.js",
-//   2: "webplayer-cef-routes.547ab6e9.js",
-//   3: "webplayer-routes.65d7ec93.js",
-// };
+bundle.chunkNameMapping = {
+  0: "vendors~webplayer-routes.17965baf.js",
+  2: "webplayer-cef-routes.547ab6e9.js",
+  3: "webplayer-routes.65d7ec93.js",
+};
 bundle.parse();
 // bundle.addChunk('vendors~webplayer-routes.17965baf.js');
 
