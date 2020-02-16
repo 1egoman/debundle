@@ -14,6 +14,7 @@
     "escodegen": "^1.13.0",
     "escope": "^3.6.0",
     "estraverse": "^4.3.0",
+    "mkdirp": "^1.0.3",
     "recast": "^0.18.5",
     "sync-request": "^6.1.0"
   }

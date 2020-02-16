@@ -5,6 +5,7 @@ const acorn = require('acorn');
 const escope = require('escope');
 const estraverse = require('estraverse');
 const escodegen = require('escodegen');
+const mkdirp = require('mkdirp');
 
 const request = require('sync-request');
 
@@ -13,7 +14,7 @@ const cliHighlight = require('cli-highlight').highlight;
 const highlight = (code) => cliHighlight(code, {language: 'javascript', ignoreIllegals: true});
 
 const METADATA_FILE_TEMPLATE = `// This auto-generated file defines some options used when "<PATH>" is debundled.
-module.exports = () => (<JSON>)\n`;
+module.exports = <JSON>\n`;
 
 class ExtendedError extends Error {
   constructor(name, message, ...args /*, context */) {
@@ -33,15 +34,6 @@ class ExtendedError extends Error {
 }
 
 function parseBundleModules(node, bundle, isChunk=false) {
-    throw new ExtendedError('BundleModuleParsingError',
-      'Cannot locate modules within bundle - it is not an array or an object!',
-      'The module bootstrapping function was found and parsed, but no array or object',
-      'containing module closures was found. This probably means that the module being parsed',
-      'is something a bit unusual, and in order to unpack this bundle, a manual path to the',
-      'module array must be specified by adding a "moduleClosurePath" key to the "options" object',
-      `in the ${bundle.metadataFilePath} file that was created. For more information, see [INSERT LINK HERE].`,
-      {foo: true}
-    );
   if (node.type === 'ObjectExpression') {
     // Object
     return node.properties.map(property => {
@@ -154,7 +146,7 @@ class WebpackBootstrap {
 
   // Returns an array that looks like ['module', 'exports', 'require'], which indicates
   // the index of each value in the function signature of each module closure
-  get moduleClosureParamIndexes() {
+  moduleClosureParamMetadata() {
     const moduleCallExpression = this._moduleCallExpression;
     const [moduleThisValue, ...args] = moduleCallExpression.arguments;
 
@@ -175,7 +167,12 @@ class WebpackBootstrap {
     const requireIndex = paramIndexes.findIndex(i => i === null);
     paramIndexes[requireIndex] =  'require';
 
-    return paramIndexes;
+    return {
+      paramIndexes,
+
+      // The identifier that `exports` in `module.exports` has been minified to become.
+      moduleExportsKey: moduleThisValue.property.name,
+    };
   }
 }
 
@@ -199,6 +196,7 @@ class Bundle {
     }
 
     this.metadataFilePath = path.join(path.dirname(this.path), path.basename(this.path)+'.info');
+    this.metadataFileContents = {};
 
     this.chunks = new Map();
     this.logIndentLevel = 0;
@@ -214,6 +212,8 @@ class Bundle {
         },
       });
     }
+
+    this._hooks = {};
 
     this.readMetadataFile();
   }
@@ -235,6 +235,9 @@ class Bundle {
   parse() {
     const bundleContents = fs.readFileSync(this.path).toString();
     this.log(`Read bundle ${this.path} (${bundleContents.length} bytes)`)
+
+    // HOOK: PreParse
+    if (this._hooks.preParse) { this._hooks.preParse(this); }
 
     this.ast = acorn.parse(bundleContents, {});
 
@@ -260,25 +263,40 @@ class Bundle {
 
     this.writeMetadataFile();
 
+    // HOOK: PostParse
+    if (this._hooks.postParse) { this._hooks.postParse(this); }
+
     return this;
   }
 
   get modules() {
-    return Object.fromEntries(
+    return new Map(
       Array.from(this.chunks)
-        .flatMap(([id, chunk]) => Object.entries(chunk.modules))
+        .flatMap(([id, chunk]) => Array.from(chunk.modules))
     );
+  }
+  get _modulesKeys() {
+    return Array.from(this.modules).map(([key, value]) => key);
+  }
+  get _modulesValues() {
+    return Array.from(this.modules).map(([key, value]) => value);
   }
 
   // Given anything that could be specified in a `require` call, return the module
-  getModule = (moduleId) => {
-    const m = this.modules[moduleId];
+  getModule = (arg) => {
+    // First, try by module id
+    let m = this.modules.get(arg);
     if (m) {
       return m;
-    } else {
-      return null;
-      // throw new Error('Need to implement looking up modules by path');
     }
+
+    // Second, try by path
+    m = this.modules.find(m => m.path === arg);
+    if (m) {
+      return m;
+    }
+
+    return null
   }
 
   getChunk = (chunkId) => {
@@ -313,7 +331,7 @@ class Bundle {
   // Get all modules that are at the top level of the bundle (probably just one, but could be
   // multiple in theory)
   get entrypointModule() {
-    return this.modules[this.webpackBootstrap.entrypointModuleId];
+    return this.modules.get(this.webpackBootstrap.entrypointModuleId);
   }
 
   // Find the ast that makes up the webpack bootstrap section of the bundle
@@ -395,17 +413,15 @@ class Bundle {
     return this.webpackBootstrap;
   }
 
-  // Get a path to the location within the bundle where the module list occurs.
-  // Should return a list of `FunctionExpression` ast nodes.
-  get moduleClosureParamIndexes() {
-    return this.webpackBootstrap.moduleClosureParamIndexes;
+  moduleClosureParamMetadata(...args) {
+    return this.webpackBootstrap.moduleClosureParamMetadata(...args);
   }
 
   _calculateModuleTree() {
     // Create an object mapping the module id to an object containing the module id, the parent
     // modules, and the vhild modules.
     const tree = Object.fromEntries(
-      Object.values(this.modules).map(module => [module.id, {
+      this._modulesValues.map(module => [module.id, {
         id: module.id,
         _dependencyIds: module._dependencyModuleIds,
         parents: [],
@@ -439,12 +455,6 @@ class Bundle {
         Object.entries(this._options)
           .filter(([key, value]) => DEFAULT_OPTIONS[key] !== value)
       ),
-
-      modules: (
-        Object.values(this.modules)
-          .map(m => m.serialize())
-          .filter(m => m !== null)
-      ),
     };
   }
 
@@ -452,37 +462,34 @@ class Bundle {
     const shouldWrite = !this._metadataFileExistedAtStartOfProgram || opts.force;
 
     if (shouldWrite) {
-      const contents = this.serialize();
       fs.writeFileSync(
         this.metadataFilePath,
         METADATA_FILE_TEMPLATE
-          .replace('<JSON>', JSON.stringify(contents, null, 2))
+          .replace('<JSON>', JSON.stringify(this.serialize(), null, 2))
           .replace('<PATH>', this.path),
       );
     }
   }
 
   readMetadataFile() {
-    let metadataClosure;
-    this._metadataFileExistedAtStartOfProgram = false;
+    let metadataFileContents;
+    this._metadataFileExistedAtStartOfProgram = true;
     try {
-      metadataClosure = require(this.metadataFilePath);
+      metadataFileContents = require(this.metadataFilePath);
     } catch (e) {
+      this._metadataFileExistedAtStartOfProgram = false;
+    }
+
+    if (!this._metadataFileExistedAtStartOfProgram) {
+      this.writeMetadataFile();
       return;
     }
-    this._metadataFileExistedAtStartOfProgram = true;
 
-
-    if (typeof metadataClosure !== 'function') {
-      throw new Error(`Malformed metadata file - module.exports is expected to be a function, not ${typeof metadataClosure}!`);
+    if (typeof metadataFileContents !== 'object') {
+      throw new Error(`Malformed metadata file - module.exports is expected to be an object, not ${typeof metadataClosure}!`);
     }
 
-    const data = metadataClosure();
-    if (typeof data !== 'object') {
-      throw new Error('Malformed metadata file - closure is expected to return an object!');
-    }
-
-    const {version, options} = data;
+    const {version, options, hooks} = metadataFileContents;
 
     if (version !== 1) {
       throw new Error(`Malformed metadata file - metadata file is version ${version}, but this program only knows how to read version 1`);
@@ -492,6 +499,8 @@ class Bundle {
     for (const key in options) {
       this._options[key] = options[key] || this._options[key];
     }
+
+    this._hooks = hooks || {};
   }
 }
 
@@ -581,7 +590,7 @@ class Chunk {
       bundleModules = parseBundleModules(moduleList, this.bundle, true);
     }
 
-    this.modules = Object.fromEntries(
+    this.modules = new Map(
       bundleModules
       .flatMap(([moduleId, moduleAst]) => {
         // Sometimes, modules are null. This is usually because they are a empty / a placeholder
@@ -598,7 +607,7 @@ class Chunk {
   }
 
   get [Symbol.toStringTag]() {
-    return `chunk ${this.fileName}: ${Object.keys(this.modules).length} modules`;
+    return `chunk ${this.fileName}: ${this.modules.size} modules`;
   }
 
   get url() {
@@ -628,7 +637,15 @@ class Module {
     this.id = moduleId;
     this.ast = ast;
 
-    this.path = `${chunk.ids.join('-')}-${this.id}.js`;
+    this._packageName = null;
+
+    this.metadataFileConfig = (
+      (this.bundle.metadataFileContents.modules || []).find(i => i.id === this.id)
+    ) || {};
+
+    this._defaultPath = `${chunk.ids.join('-')}-${this.id}.js`.replace(new RegExp(path.sep, 'g'), '-');
+    this.path = this.metadataFileConfig.path || this._defaultPath;
+    this.comment = null;
 
     this.scopeManager = escope.analyze(this.ast);
 
@@ -667,6 +684,8 @@ class Module {
       });
 
     this.bundle.logDedent();
+    if (this.path.includes(path.sep)) {
+    }
   }
 
   get absolutePath() {
@@ -675,7 +694,7 @@ class Module {
 
   // Get a reference to require, module, or exports defined in the module closure
   _getModuleClosureVariable(varname) {
-    const index = this.bundle.moduleClosureParamIndexes.indexOf(varname);
+    const index = this.bundle.moduleClosureParamMetadata().paramIndexes.indexOf(varname);
     const node = this.ast.params[index];
     if (!node) { return null; }
 
@@ -692,25 +711,25 @@ class Module {
     )));
   }
 
-  code(opts={renameVariables: true}) {
+  code(opts={renameVariables: true, removeClosure: true}) {
     const originalAst = acorn.parse('var a = '+escodegen.generate(this.ast), {}).body[0].declarations[0].init;
 
     if (opts.renameVariables) {
       if (this.requireVariable) {
         // Adjust all require calls to contain the path to the module that is desired
         this._findAllRequireFunctionCalls().forEach(call => {
-          if (!this.bundle.modules[call.moduleId]) {
+          if (!this.bundle.modules.get(call.moduleId)) {
             return;
           }
 
-          const requiredModulePath = this.bundle.modules[call.moduleId].absolutePath;
+          const requiredModulePath = this.bundle.modules.get(call.moduleId).absolutePath;
 
           // Determine the require path that must be used to access the module requested from
           // the current module.
-          call.ast.value = path.relative(
+          call.ast.value = './' + path.relative(
             path.dirname(this.absolutePath),
             requiredModulePath
-          )
+          );
         });
 
         // Rename __webpack_require__ (or minified name) to require
@@ -719,6 +738,19 @@ class Module {
 
       const moduleVariable = this.moduleVariable;
       if (moduleVariable) {
+
+        // Update the minified value of `module.exports` to be `module.exports`
+        // ie, `f.P` (from one random bundle, as an example) => `module.exports`
+        moduleVariable.references.forEach(ref => {
+          const n = ref.identifier._parent;
+          if (n.type !== 'MemberExpression') { return; }
+
+          const moduleExportsKey = this.bundle.moduleClosureParamMetadata().moduleExportsKey;
+          if (n.property.name !== moduleExportsKey) { return; }
+
+          n.property.name = 'exports';
+        });
+
         // Rename the module closure variable to module (the bundle may be minified and this may not be
         // the case already)
         this.renameVariable(moduleVariable, 'module');
@@ -735,7 +767,19 @@ class Module {
     const newAst = this.ast;
     this.ast = originalAst;
 
-    return escodegen.generate(newAst);
+    let code;
+    if (opts.removeClosure) {
+      code = newAst.body.body.map(e => escodegen.generate(e)).join('\n');
+    } else {
+      code = escodegen.generate(newAst);
+    }
+
+    // Add comment to beginning of code, if it is defined.
+    if (this.comment) {
+      return `/*\n${this.comment}\n*/\n${code}`;
+    } else {
+      return code;
+    }
   }
 
   // Rename a variable in the module to be a different name
@@ -750,13 +794,6 @@ class Module {
       reference.identifier.name = newName;
     });
     return this;
-  }
-
-  serialize() {
-    return {
-      id: this.id,
-      path: this.path,
-    };
   }
 
   // Returns an array of objects of {type, chunkId, moduleId, ast}, retreived by parting the AST and
@@ -886,18 +923,47 @@ class Module {
       return modulePath;
     }
   }
+
+  async write(opts=undefined) {
+    let filePath = this.absolutePath;
+
+    await mkdirp(path.dirname(filePath))
+
+    await fs.promises.writeFile(
+      filePath,
+      this.code(opts),
+    );
+  }
+
+  // When called, rename this module's path to be `node_modules/packageName`, and
+  // then move all dependant packages inside this package, too.
+  get packageName() { return this._packageName; }
+  set packageName(packageName) {
+    this._packageName = packageName;
+    function recursivelyApplyPathPrefix(mod) {
+      mod.path = `node_modules/${packageName}/${mod.path}`;
+
+      for (const [id, dependant] of mod.dependencies) {
+        recursivelyApplyPathPrefix(dependant);
+      }
+    }
+
+    recursivelyApplyPathPrefix(this);
+
+    this.path = `node_modules/${packageName}/index.js`;
+  }
 }
 
 // const bundle = new Bundle('./bandersnatch.js');
 // bundle.parse();
 // const bundle = new Bundle('test_bundles/webpack/bundle.js');
-const bundle = new Bundle('./spotify.js');
-bundle.chunkNameMapping = {
-  0: "vendors~webplayer-routes.17965baf.js",
-  2: "webplayer-cef-routes.547ab6e9.js",
-  3: "webplayer-routes.65d7ec93.js",
-};
-bundle.parse();
+// const bundle = new Bundle('./spotify.js');
+// bundle.chunkNameMapping = {
+//   0: "vendors~webplayer-routes.17965baf.js",
+//   2: "webplayer-cef-routes.547ab6e9.js",
+//   3: "webplayer-routes.65d7ec93.js",
+// };
+// bundle.parse();
 // bundle.addChunk('vendors~webplayer-routes.17965baf.js');
 
 // const bundle = new Bundle('./test_bundles/density-dashboard/index.js');
@@ -930,4 +996,52 @@ bundle.parse();
 // for (const [key, value] of bundle.getModule('L7z0').dependencies) {
 //   console.log('MODULE ID', key, !!value);
 // }
-// console.log(bundle.getModule(906).code())
+// console.log(bundle.getModule(130).code())
+
+
+// ----------------------------------------------------------------------------
+// BANDERSNATCH
+// ----------------------------------------------------------------------------
+
+// const bundle = new Bundle('./bandersnatch.js');
+// bundle.parse();
+
+// bundle.getModule(5).path = 'dom-polyfills.js';
+// bundle.getModule(6).path = 'constants.js';
+//
+// bundle.getModule(14).path = 'more-utility-functions.js';
+//
+// // NOTE: default-15.js contains a place where module was renamed in error
+// bundle.getModule(15).path = 'type-guesser-wrapper.js';
+// bundle.getModule(15).comment = 'This module is a relatively thin wrapper around default-108.js ("type-guesser.js")';
+//
+// bundle.getModule(19).path = 'utility-functions.js';
+//
+// bundle.getModule(25).path = 'stream-decoding-logic.js';
+// ``
+// bundle.getModule(36).path = 'widevine-keys-utils.js';
+// bundle.getModule(36).comment = 'Functions to initialize widevine via navigator.requestMediaKeySystemAccess';
+//
+// bundle.getModule(80).path = 'type-guesser-second-wrapper.js';
+//
+// bundle.getModule(162).path = 'get-window.js';
+// bundle.getModule(162).comment = 'Function to get a reference to the global "this" / window';
+//
+// bundle.getModule(108).path = 'type-guesser.js';
+// bundle.getModule(108).comment = 'This looks like a library of functions to determine if a value is an object, is null, etc';
+//
+// bundle.getModule(904).path = 'map-set-weakmap-polyfills.js';
+// bundle.getModule(905).path = 'main.js';
+// bundle.getModule(906).path = 'entrypoint.js';
+//
+// console.log('ENTRYPOINT:', bundle.webpackBootstrap.entrypointModuleId);
+
+
+const bundle = new Bundle(process.argv[process.argv.length-1]);
+bundle.parse()
+
+const promises = [];
+for (const [key, value] of bundle.modules) {
+  promises.push(value.write());
+}
+Promise.all(promises).then(() => console.log('Done.'));
