@@ -11,6 +11,7 @@
     "acorn": "^7.1.0",
     "chalk": "^3.0.0",
     "cli-highlight": "^2.1.4",
+    "commander": "^4.1.1",
     "escodegen": "^1.13.0",
     "escope": "^3.6.0",
     "estraverse": "^4.3.0",
