@@ -6,7 +6,7 @@ const estraverse = require('estraverse');
 const escodegen = require('escodegen');
 
 const { parseBundleModules, highlight } = require('../utils');
-const { DEFAULT_CHUNK, DEFAULT_OPTIONS } = require('../settings');
+const { DEFAULT_CHUNK, DEFAULT_OPTIONS, METADATA_FILE_TEMPLATE } = require('../settings');
 
 const WebpackBootstrap = require('./WebpackBootstrap');
 const Chunk = require('./Chunk');
