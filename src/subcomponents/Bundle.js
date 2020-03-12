@@ -94,6 +94,16 @@ class Bundle {
     return this;
   }
 
+  async writeAll() {
+    this.log(`Writing all modules to ${this.distPath}...`);
+    const promises = [];
+    for (const [key, value] of this.modules) {
+      promises.push(value.write());
+    }
+    await Promise.all(promises);
+    this.log(`Finished writing all modules to ${this.distPath}: wrote ${this.modules.size} files.`);
+  }
+
   get modules() {
     return new Map(
       Array.from(this.chunks)
