@@ -121,4 +121,57 @@ module.exports = function () {
     }
     return u;
 };
+$
+$ # After debundling, a new file is generated alongside the original bundle file, which can be used
+$ # to configure additional runs of debundle. The `.info` suffix is old and outdated, this should be
+$ # changed.
+$ cat createreactapp.js.info 
+// This auto-generated file defines some options used when "createreactapp.js" is debundled.
+module.exports = {
+  "version": 1,
+  "options": {}
+}
+$
+$ # The idea is, you could modify the file to look something like the below to do things like set
+$ # specific configuration options, or run code during specific parts of the debundling workflow ("hooks")
+$ cat createreactapp.js.info 
+// A modified version of the above file
+module.exports = {
+  "version": 1,
+  "options": {
+    "distPath": "./my-cool-dist",
+    // There are more, take a look at "settings.js" for the default list that is merged with this
+  },
+
+  hooks: {
+    // There's also a "preParse" right now, that's all. There maybe should be more?
+    postParse: bundle => {
+      // In here, you have access to the `bundle` instance and can do whatever you want, before the
+      // modules are exported to disk. None of this is documented yet, sorry :(
+
+      bundle.getModule(5).path = 'dom-polyfills.js';
+      bundle.getModule(6).path = 'constants.js';
+
+      bundle.getModule(14).path = 'more-utility-functions.js';
+
+      // NOTE: default-15.js contains a place where module was renamed in error
+      bundle.getModule(15).path = 'type-guesser-wrapper.js';
+      bundle.getModule(15).comment = 'This module is a relatively thin wrapper around default-108.js ("type-guesser.js")';
+      //                              ^ This line lets you set a comment at the top of the file when
+      //                                it is exported to disk.
+
+      // You can also log things out, too:
+      /* console.log('Entrypoint Module Id:', bundle.webpackBootstrap.entrypointModuleId); */
+    },
+  },
+}
+$
+$ # Now, at any time, you can rerun the original debundling process, and "re-debundle" it. This
+$ # effectively acts as a build step and the .js.info file acts as configuration. Doing it this way
+$ # means that (in theory) doing things like getting updated bundles and re-debundling them should be
+$ # doable in the future (some work would have to be done to make a mapping of old module ids to new
+$ # module ids), which is something that I wanted to attempt at some point. 
+$
+$ # All this is still tentative, though. Anything is up for debate / change if there's a good reason
+$ # to change it - this was just what I arrived at and it worked to solve my problem.
 ```
