@@ -1,0 +1,36 @@
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 0;
+  flex-shrink: 0;
+
+  height: 100%;
+
+  width: 300px;
+  font-family: var(--font-family);
+  font-size: 16px;
+  line-height: 32px;
+
+  border-right: 1px solid var(--gray);
+  margin-right: 24px;
+  overflow-y: auto;
+}
+
+.sidebar a {
+  color: var(--fg-color);
+}
+
+.sidebar > span {
+  font-size: 18px;
+  user-select: none;
+}
+
+a.active {
+  color: var(--primary);
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  margin-left: 16px;
+}

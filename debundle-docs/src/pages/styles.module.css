@@ -1,0 +1,71 @@
+.wrapper {
+  display: flex;
+  height: 100%;
+}
+
+.wrapper main {
+  overflow-y: auto;
+  padding-right: 64px;
+  margin-right: -64px;
+  font-family: var(--font-family);
+  line-height: 36px;
+}
+
+.wrapper main pre {
+  border: 2px solid var(--pre-border-color);
+  background-color: var(--pre-fill-color);
+  border-radius: 4px;
+  padding: 16px;
+  margin-bottom: 1.45rem;
+}
+.wrapper main :global(.gatsby-code-title) {
+  border: 2px solid var(--pre-border-color);
+  border-bottom: 0px;
+  background-color: var(--pre-fill-color);
+  border-top-left-radius: 4px;
+  border-top-right-radius: 4px;
+  padding-left: 16px;
+  padding-right: 16px;
+  color: var(--pre-title-color);
+  line-height: 48px;
+  font-weight: var(--bold);
+  user-select: none;
+}
+.wrapper main :global(.gatsby-code-title) + :global(.gatsby-highlight) pre {
+  margin-top: 0px;
+  border-top-left-radius: 0px;
+  border-top-right-radius: 0px;
+}
+
+.wrapper main :global(.gatsby-highlight) + :global(.gatsby-code-title) {
+  margin-top: 8px;
+}
+
+.wrapper main code {
+  color: var(--fg-color);
+  background-color: var(--code-fill-color);
+  margin-left: 4px;
+  padding-left: 4px;
+  padding-right: 2px;
+  margin-right: 8px;
+  border-radius: 4px;
+  font-weight: var(--medium);
+}
+.wrapper main code:first-child { margin-left: 0px; }
+.wrapper main code:last-child { margin-right: 0px; }
+.wrapper main pre code {
+  color: inherit;
+  border: 0px;
+  background-color: transparent;
+}
+
+.wrapper main a {
+  color: var(--primary);
+}
+
+.wrapper main h2 {
+  margin-top: 4rem;
+}
+.wrapper main h3 {
+  margin-top: 2rem;
+}

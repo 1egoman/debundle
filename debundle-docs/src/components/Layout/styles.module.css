@@ -1,0 +1,11 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.content {
+  padding-left: 64px;
+  padding-right: 64px;
+  height: 100%;
+}
