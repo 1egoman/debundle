@@ -26,7 +26,7 @@ class Module {
       (this.bundle.metadataFileContents.modules || []).find(i => i.id === this.id)
     ) || {};
 
-    this._defaultPath = `${chunk.ids.join('-')}-${this.id}.js`.replace(new RegExp(path.sep, 'g'), '-');
+    this._defaultPath = `${chunk.ids.join('-')}-${this.id}.js`.replace(new RegExp(`\\${path.sep}`, 'g'), '-');
     this.path = this.metadataFileConfig.path || this._defaultPath;
     this.comment = null;
 
