@@ -58,7 +58,7 @@ const bundleContents = fs.readFileSync(bundleLocation);
 let ast = acorn.parse(bundleContents, {});
 
 // Get the entry point in the bundle.
-if (config.type === 'browserify' && !config.entryPoint) {
+if (config.type === 'browserify' && config.entryPoint === undefined) {
   console.log('* Using auto-discovered browserify entry point...');
   config.entryPoint = ast.body[0].expression.arguments[2].elements[0].value;
 }
